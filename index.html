@@ -345,12 +345,48 @@ hr { border: none; border-top: 1px solid var(--wire); margin: 20px 0; }
 
         <div class="field">
           <label>Canvas Base URL</label>
-          <input type="url" id="canvasBase" placeholder="https://alueducation.instructure.com" value="https://alueducation.instructure.com">
+          <input type="url" id="canvasBase" placeholder="https://alueducation.instructure.com" value="https://alueducation.instructure.com" onchange="saveGlobal()">
         </div>
 
+        <!-- ── Saved Courses ── -->
         <div class="field">
-          <label>Course URL</label>
-          <input type="url" id="courseUrl" placeholder="https://alueducation.instructure.com/courses/2571">
+          <label>Course
+            <button onclick="showAddCourse()" class="btn btn-ghost" style="padding:3px 10px;font-size:10px;margin-left:8px;">+ Add Course</button>
+          </label>
+
+          <!-- Saved courses list -->
+          <div id="courseList" style="display:none;margin-bottom:10px;"></div>
+
+          <!-- Active course pill -->
+          <div id="activeCourse" style="display:none;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:rgba(34,211,160,.06);border:1px solid rgba(34,211,160,.2);border-radius:6px;font-family:var(--mono);font-size:12px;">
+              <span style="color:#22d3a0">●</span>
+              <span id="activeName" style="color:var(--txt);font-weight:500;flex:1"></span>
+              <span id="activeUrl"  style="color:var(--txt3);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;"></span>
+              <button onclick="showCourseList()" class="btn btn-ghost" style="padding:3px 10px;font-size:10px;flex-shrink:0;">Switch</button>
+            </div>
+          </div>
+
+          <!-- Hidden url input still used by discoverIds() -->
+          <input type="hidden" id="courseUrl">
+
+          <!-- Add course form -->
+          <div id="addCourseForm" style="display:none;padding:14px;background:var(--ink);border:1px solid var(--wire);border-radius:6px;margin-top:6px;">
+            <div class="row2" style="margin-bottom:10px;">
+              <div class="field" style="margin-bottom:0">
+                <label>Course Name</label>
+                <input type="text" id="newCourseName" placeholder="e.g. Data Structures S25">
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>Course URL</label>
+                <input type="url" id="newCourseUrl" placeholder="https://canvas.../courses/1234">
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-go" onclick="addCourse()" style="flex:1">Save Course</button>
+              <button class="btn btn-ghost" onclick="document.getElementById('addCourseForm').style.display='none'">Cancel</button>
+            </div>
+          </div>
         </div>
 
         <div class="field">
@@ -1046,15 +1082,17 @@ function openRCUrl() {
 
 
 // ═══════════════════════════════════════════════════════
-// LOCALSTORAGE PERSISTENCE
+// LOCALSTORAGE — multi-course
 // ═══════════════════════════════════════════════════════
-const LS_KEY = 'rca_config';
+const LS_GLOBAL  = 'rca_global';   // token, base, region, settings
+const LS_COURSES = 'rca_courses';  // [{id,name,url,assignId,secId}]
+const LS_ACTIVE  = 'rca_active';   // active course id
 
-function saveToLS() {
+// ── Global config (token, region, settings) ──
+function saveGlobal() {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({
+    localStorage.setItem(LS_GLOBAL, JSON.stringify({
       canvasBase: document.getElementById('canvasBase').value,
-      courseUrl:  document.getElementById('courseUrl').value,
       apiToken:   document.getElementById('apiToken').value,
       region:     document.getElementById('rollcallRegion').value,
       sessDur:    document.getElementById('sessDur').value,
@@ -1064,36 +1102,149 @@ function saveToLS() {
   } catch(e) {}
 }
 
-function loadFromLS() {
+function loadGlobal() {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(LS_GLOBAL);
     if (!raw) return;
     const c = JSON.parse(raw);
     if (c.canvasBase) document.getElementById('canvasBase').value = c.canvasBase;
-    if (c.courseUrl)  document.getElementById('courseUrl').value  = c.courseUrl;
     if (c.apiToken) {
       document.getElementById('apiToken').value = c.apiToken;
       document.getElementById('savedBadge').style.display = 'inline';
     }
-    if (c.region) document.getElementById('rollcallRegion').value = c.region;
+    if (c.region)     document.getElementById('rollcallRegion').value = c.region;
     if (c.sessDur)    document.getElementById('sessDur').value    = c.sessDur;
     if (c.lateThresh) document.getElementById('lateThresh').value = c.lateThresh;
     if (c.minFrac)    document.getElementById('minFrac').value    = c.minFrac;
   } catch(e) {}
 }
 
-function clearSaved() {
-  if (!confirm('Clear all saved configuration?')) return;
-  localStorage.removeItem(LS_KEY);
-  document.getElementById('apiToken').value  = '';
-  document.getElementById('courseUrl').value = '';
-  document.getElementById('savedBadge').style.display = 'none';
+// ── Courses CRUD ──
+function getCourses() {
+  try { return JSON.parse(localStorage.getItem(LS_COURSES) || '[]'); } catch(e) { return []; }
+}
+function saveCourses(list) {
+  try { localStorage.setItem(LS_COURSES, JSON.stringify(list)); } catch(e) {}
+}
+function getActiveId() {
+  return localStorage.getItem(LS_ACTIVE) || null;
+}
+function setActiveId(id) {
+  localStorage.setItem(LS_ACTIVE, id);
 }
 
+function addCourse() {
+  const name = document.getElementById('newCourseName').value.trim();
+  const url  = document.getElementById('newCourseUrl').value.trim();
+  if (!name || !url) { alert('Enter both a name and URL.'); return; }
+  const courses = getCourses();
+  const id = 'c' + Date.now();
+  courses.push({ id, name, url, assignId: '', secId: '' });
+  saveCourses(courses);
+  setActiveId(id);
+  document.getElementById('newCourseName').value = '';
+  document.getElementById('newCourseUrl').value  = '';
+  document.getElementById('addCourseForm').style.display = 'none';
+  renderCourses();
+}
+
+function deleteCourse(id) {
+  if (!confirm('Remove this course?')) return;
+  let courses = getCourses().filter(c => c.id !== id);
+  saveCourses(courses);
+  // If deleted was active, pick next or clear
+  if (getActiveId() === id) {
+    localStorage.removeItem(LS_ACTIVE);
+    if (courses.length) setActiveId(courses[0].id);
+  }
+  renderCourses();
+}
+
+function selectCourse(id) {
+  setActiveId(id);
+  renderCourses();
+}
+
+function updateCourseIds(assignId, secId) {
+  const aid = getActiveId();
+  if (!aid) return;
+  const courses = getCourses();
+  const c = courses.find(x => x.id === aid);
+  if (c) { c.assignId = assignId; c.secId = secId; saveCourses(courses); }
+}
+
+// ── Render course list / active pill ──
+function renderCourses() {
+  const courses  = getCourses();
+  const activeId = getActiveId();
+  const active   = courses.find(c => c.id === activeId);
+
+  const listEl   = document.getElementById('courseList');
+  const activeEl = document.getElementById('activeCourse');
+
+  if (!courses.length) {
+    listEl.style.display   = 'none';
+    activeEl.style.display = 'none';
+    document.getElementById('courseUrl').value = '';
+    return;
+  }
+
+  if (active) {
+    // Show active pill, hide list
+    activeEl.style.display = 'block';
+    listEl.style.display   = 'none';
+    document.getElementById('activeName').textContent = active.name;
+    document.getElementById('activeUrl').textContent  = active.url;
+    document.getElementById('courseUrl').value        = active.url;
+    // Restore discovered IDs if cached
+    if (active.assignId) {
+      document.getElementById('assignId').value = active.assignId;
+      G.assignId = active.assignId;
+    }
+    if (active.secId) {
+      document.getElementById('secId').value = active.secId;
+      G.secId = active.secId;
+      document.getElementById('idsPanel').style.display = 'block';
+    }
+  } else {
+    activeEl.style.display = 'none';
+    showCourseList();
+  }
+}
+
+function showCourseList() {
+  const courses  = getCourses();
+  const activeId = getActiveId();
+  const listEl   = document.getElementById('courseList');
+
+  listEl.style.display   = 'block';
+  document.getElementById('activeCourse').style.display = 'none';
+
+  listEl.innerHTML = courses.map(c => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
+      border:1px solid ${c.id===activeId?'rgba(34,211,160,.3)':'var(--wire)'};
+      border-radius:6px;margin-bottom:6px;background:${c.id===activeId?'rgba(34,211,160,.04)':'var(--ink)'};
+      cursor:pointer;" onclick="selectCourse('${c.id}')">
+      <span style="color:${c.id===activeId?'#22d3a0':'var(--txt3)'}">●</span>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:${c.id===activeId?'600':'400'};flex:1;color:var(--txt)">${c.name}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${c.url}</span>
+      <button onclick="event.stopPropagation();deleteCourse('${c.id}')"
+        style="background:none;border:1px solid rgba(248,113,113,.25);color:#f87171;border-radius:4px;
+        font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;font-family:var(--mono);">✕</button>
+    </div>
+  `).join('');
+}
+
+function showAddCourse() {
+  document.getElementById('addCourseForm').style.display = 'block';
+  document.getElementById('newCourseName').focus();
+}
+
+// ── Token helpers ──
 function onTokenInput() {
   clearTimeout(onTokenInput._t);
   onTokenInput._t = setTimeout(() => {
-    saveToLS();
+    saveGlobal();
     const v = document.getElementById('apiToken').value.trim();
     document.getElementById('savedBadge').style.display = v ? 'inline' : 'none';
   }, 800);
@@ -1102,18 +1253,37 @@ function onTokenInput() {
 function toggleTokenVis() {
   const inp = document.getElementById('apiToken');
   const btn = document.getElementById('visBtn');
-  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '\u{1F648} Hide'; }
-  else                         { inp.type = 'password'; btn.textContent = '\u{1F441} Show'; }
+  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '🙈 Hide'; }
+  else                         { inp.type = 'password'; btn.textContent = '👁 Show'; }
 }
 
-// Auto-save when other config fields change
-['canvasBase','courseUrl','rollcallRegion','sessDur','lateThresh','minFrac'].forEach(id => {
+function clearSaved() {
+  if (!confirm('Clear token and all saved courses?')) return;
+  [LS_GLOBAL, LS_COURSES, LS_ACTIVE].forEach(k => localStorage.removeItem(k));
+  document.getElementById('apiToken').value = '';
+  document.getElementById('savedBadge').style.display = 'none';
+  renderCourses();
+}
+
+// Auto-save settings fields
+['rollcallRegion','sessDur','lateThresh','minFrac'].forEach(id => {
   const el = document.getElementById(id);
-  if (el) el.addEventListener('change', saveToLS);
+  if (el) el.addEventListener('change', saveGlobal);
 });
 
-// Restore on load
-loadFromLS();
+// ── Patch discoverIds to cache IDs into the active course ──
+const _origDiscoverIds = discoverIds;
+discoverIds = async function() {
+  await _origDiscoverIds();
+  // After discovery, cache the found IDs into the active course
+  const aId = document.getElementById('assignId').value;
+  const sId = document.getElementById('secId').value;
+  if (aId && sId) updateCourseIds(aId, sId);
+};
+
+// ── Init ──
+loadGlobal();
+renderCourses();
 
 async function copyBM() {
   if (!G._bm) { alert('Generate first.'); return; }
