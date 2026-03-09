@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roll Call Automator · Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #0e1117;
+  --ink2: #1a1f2e;
+  --wire: #252d3d;
+  --wire2: #1e2535;
+  --go: #22d3a0;
+  --go-dim: rgba(34,211,160,.1);
+  --go-border: rgba(34,211,160,.22);
+  --sky: #38bdf8;
+  --sky-dim: rgba(56,189,248,.08);
+  --amber: #fbbf24;
+  --red: #f87171;
+  --txt: #e2e8f0;
+  --txt2: #94a3b8;
+  --txt3: #475569;
+  --mono: 'Geist Mono', monospace;
+  --sans: 'Geist', sans-serif;
+  --r: 6px;
+}
+
+html { font-size: 14px; }
+body {
+  background: var(--ink);
+  color: var(--txt);
+  font-family: var(--sans);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* Subtle dot grid */
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(circle, #252d3d 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: .45;
+}
+
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+/* ── Header ── */
+.hdr {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 40px; padding-bottom: 24px;
+  border-bottom: 1px solid var(--wire);
+}
+.hdr-dot {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--go-dim); border: 1px solid var(--go-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.hdr-title { font-family: var(--mono); font-size: 17px; font-weight: 600; }
+.hdr-sub   { font-family: var(--mono); font-size: 11px; color: var(--txt3); margin-top: 2px; }
+.hdr-badge {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  color: var(--go); letter-spacing: .14em;
+  background: var(--go-dim); border: 1px solid var(--go-border);
+  padding: 4px 10px; border-radius: 20px;
+}
+
+/* ── Progress bar ── */
+.prog-track {
+  display: flex; gap: 0;
+  border: 1px solid var(--wire); border-radius: var(--r);
+  overflow: hidden; margin-bottom: 28px;
+}
+.prog-step {
+  flex: 1; padding: 10px 6px;
+  background: var(--ink2); border-right: 1px solid var(--wire);
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  font-family: var(--mono); font-size: 11px; color: var(--txt3);
+  cursor: pointer; transition: all .15s; user-select: none;
+}
+.prog-step:last-child { border-right: none; }
+.prog-step.on  { background: var(--go-dim); color: var(--go); }
+.prog-step.was { color: var(--go); opacity: .5; }
+.prog-num {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; flex-shrink: 0;
+}
+.prog-step.on .prog-num { background: var(--go); color: var(--ink); border-color: var(--go); }
+
+/* ── Card ── */
+.card {
+  background: var(--ink2);
+  border: 1px solid var(--wire);
+  border-radius: 10px; overflow: hidden;
+  margin-bottom: 20px;
+}
+.card-hdr {
+  padding: 14px 20px; border-bottom: 1px solid var(--wire);
+  display: flex; align-items: center; gap: 10px;
+}
+.card-hdr h2 { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.card-body { padding: 22px; }
+
+/* ── Forms ── */
+.field { margin-bottom: 18px; }
+.field:last-child { margin-bottom: 0; }
+label {
+  display: block; margin-bottom: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  color: var(--txt3); letter-spacing: .12em; text-transform: uppercase;
+}
+input[type=text], input[type=url], input[type=number], select {
+  width: 100%;
+  background: var(--ink); border: 1px solid var(--wire);
+  border-radius: var(--r); color: var(--txt);
+  font-family: var(--mono); font-size: 13px;
+  padding: 9px 13px; outline: none;
+  transition: border-color .15s;
+  appearance: none;
+}
+input:focus, select:focus { border-color: var(--go); }
+input::placeholder { color: var(--txt3); }
+.hint { font-family: var(--mono); font-size: 10px; color: var(--txt3); margin-top: 5px; line-height: 1.5; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+/* ── File drop ── */
+.drop-zone {
+  position: relative; border: 1.5px dashed var(--wire);
+  border-radius: var(--r); padding: 34px 20px; text-align: center;
+  cursor: pointer; transition: all .15s;
+}
+.drop-zone:hover, .drop-zone.over {
+  border-color: var(--go); background: var(--go-dim);
+}
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-icon { font-size: 26px; margin-bottom: 8px; }
+.drop-label { font-family: var(--mono); font-size: 12px; color: var(--txt3); }
+.drop-label strong { color: var(--go); }
+.file-pill {
+  display: flex; align-items: center; gap: 10px; margin-top: 12px;
+  padding: 9px 14px; border-radius: var(--r);
+  background: var(--go-dim); border: 1px solid var(--go-border);
+  font-family: var(--mono); font-size: 12px; color: var(--go);
+}
+.file-pill span { margin-left: auto; color: var(--txt3); }
+
+/* ── Buttons ── */
+.btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px; border-radius: var(--r);
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  cursor: pointer; border: none; transition: all .15s; letter-spacing: .02em;
+  text-decoration: none;
+}
+.btn-go   { background: var(--go); color: var(--ink); }
+.btn-go:hover { background: #2fffc4; }
+.btn-go:disabled { opacity: .35; cursor: not-allowed; }
+.btn-ghost { background: transparent; border: 1px solid var(--wire); color: var(--txt); }
+.btn-ghost:hover { border-color: var(--go); color: var(--go); }
+.btn-sky {
+  background: var(--sky-dim); border: 1px solid rgba(56,189,248,.25);
+  color: var(--sky); width: 100%; justify-content: center;
+  padding: 13px; font-size: 13px;
+}
+.btn-sky:hover { background: rgba(56,189,248,.14); }
+
+/* ── Alerts ── */
+.alert {
+  padding: 11px 15px; border-radius: var(--r);
+  font-family: var(--mono); font-size: 12px; line-height: 1.65;
+  display: flex; gap: 10px; margin-bottom: 18px;
+}
+.alert-info    { background: var(--sky-dim); border: 1px solid rgba(56,189,248,.2); color: var(--sky); }
+.alert-warn    { background: rgba(251,191,36,.07); border: 1px solid rgba(251,191,36,.22); color: var(--amber); }
+.alert-success { background: var(--go-dim); border: 1px solid var(--go-border); color: var(--go); }
+
+/* ── Log box ── */
+.logbox {
+  background: #070a0f; border: 1px solid var(--wire);
+  border-radius: var(--r); padding: 12px 16px;
+  font-family: var(--mono); font-size: 11px;
+  max-height: 160px; overflow-y: auto; line-height: 1.9;
+  margin-top: 14px; display: none;
+}
+.lg { color: var(--sky); }
+.lg-ok  { color: var(--go); }
+.lg-err { color: var(--red); }
+.lg-w   { color: var(--amber); }
+
+/* ── Preview table ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+th {
+  text-align: left; padding: 7px 12px; color: var(--txt3);
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  border-bottom: 1px solid var(--wire);
+}
+td { padding: 8px 12px; border-bottom: 1px solid var(--wire2); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,.018); }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 2px;
+  font-size: 10px; font-weight: 500; font-family: var(--mono);
+  white-space: nowrap;
+}
+.bp { background: rgba(34,211,160,.1);  color: var(--go); }
+.bl { background: rgba(251,191,36,.1);  color: var(--amber); }
+.ba { background: rgba(248,113,113,.1); color: var(--red); }
+
+.ovr-sel {
+  width: auto; padding: 3px 8px; font-size: 10px;
+  background: var(--ink); border: 1px solid var(--wire);
+  border-radius: 3px; color: var(--txt);
+  font-family: var(--mono);
+}
+.ovr-sel:focus { border-color: var(--go); }
+
+/* ── Stats ── */
+.stat-bar { height: 5px; border-radius: 3px; overflow: hidden; display: flex; gap: 1px; margin: 12px 0; }
+.sb-p { background: var(--go); }
+.sb-l { background: var(--amber); }
+.sb-a { background: var(--red); }
+.stat-row {
+  display: flex; gap: 18px; font-family: var(--mono); font-size: 11px;
+  margin-bottom: 16px;
+}
+.stat-item { display: flex; align-items: center; gap: 6px; }
+.sdot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── Tabs ── */
+.tab-bar { display: flex; border-bottom: 1px solid var(--wire); padding: 0 20px; }
+.tab {
+  padding: 9px 14px; font-family: var(--mono); font-size: 11px;
+  color: var(--txt3); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all .15s;
+}
+.tab.on { color: var(--go); border-bottom-color: var(--go); }
+
+/* ── Bookmarklet output ── */
+.bm-box {
+  background: #070a0f; border: 1px solid var(--wire);
+  border-radius: var(--r); padding: 16px;
+  font-family: var(--mono); font-size: 10.5px; color: #7dd3fc;
+  max-height: 120px; overflow-y: auto; overflow-x: auto;
+  white-space: pre-wrap; word-break: break-all; line-height: 1.6;
+  margin: 14px 0;
+}
+
+/* ── Bookmarklet drag target ── */
+.bm-drag-target {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 16px 20px;
+  border: 2px dashed var(--wire); border-radius: var(--r);
+  font-family: var(--mono); font-size: 12px;
+  background: var(--ink2); cursor: grab;
+  transition: all .15s; margin: 14px 0;
+  text-decoration: none; color: var(--txt);
+}
+.bm-drag-target:hover { border-color: var(--go); color: var(--go); }
+.bm-label { font-size: 10px; color: var(--txt3); margin-top: 4px; text-align: center; }
+
+.step-section { display: none; }
+.step-section.on { display: block; }
+
+hr { border: none; border-top: 1px solid var(--wire); margin: 20px 0; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--wire); border-radius: 2px; }
+
+/* ── Steps instruction numbers ── */
+.how-list { counter-reset: howto; }
+.how-item {
+  display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start;
+}
+.how-n {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--go-dim); border: 1px solid var(--go-border);
+  color: var(--go); font-family: var(--mono); font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.how-t { font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--txt2); }
+.how-t strong { color: var(--txt); }
+.how-t a { color: var(--sky); text-decoration: underline; cursor: pointer; }
+
+.roll-url-box {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--ink);
+  border: 1px solid var(--wire); border-radius: var(--r);
+  font-family: var(--mono); font-size: 12px; color: var(--sky);
+  margin: 8px 0;
+  word-break: break-all;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hdr">
+    <div class="hdr-dot">🎯</div>
+    <div>
+      <div class="hdr-title">Roll Call Automator</div>
+      <div class="hdr-sub">Canvas · No backend · No Selenium · Bookmarklet-powered</div>
+    </div>
+    <div class="hdr-badge">SETUP</div>
+  </header>
+
+  <!-- Step nav -->
+  <div class="prog-track">
+    <div class="prog-step on"  id="pn0" onclick="jump(0)"><span class="prog-num">1</span>Configure</div>
+    <div class="prog-step"     id="pn1" onclick="jump(1)"><span class="prog-num">2</span>Upload CSV</div>
+    <div class="prog-step"     id="pn2" onclick="jump(2)"><span class="prog-num">3</span>Preview</div>
+    <div class="prog-step"     id="pn3" onclick="jump(3)"><span class="prog-num">4</span>Get Bookmarklet</div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       STEP 0 — Configure
+  ════════════════════════════════════════ -->
+  <div class="step-section on" id="s0">
+    <div class="card">
+      <div class="card-hdr"><h2>⚙️ Canvas Configuration</h2></div>
+      <div class="card-body">
+
+        <div class="alert alert-info">
+          💡 Everything runs in your browser — your token never leaves this page.
+          Once set up, a single bookmarklet click inside Roll Call does everything automatically.
+        </div>
+
+        <div class="field">
+          <label>Canvas Base URL</label>
+          <input type="url" id="canvasBase" placeholder="https://alueducation.instructure.com" value="https://alueducation.instructure.com">
+        </div>
+
+        <div class="field">
+          <label>Course URL</label>
+          <input type="url" id="courseUrl" placeholder="https://alueducation.instructure.com/courses/2571">
+        </div>
+
+        <div class="field">
+          <label>Canvas Access Token
+            <span id="savedBadge" style="display:none;margin-left:8px;background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.25);color:#22d3a0;padding:1px 7px;border-radius:10px;font-size:9px;letter-spacing:.08em;">SAVED</span>
+          </label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="password" id="apiToken" placeholder="Your Canvas personal access token" autocomplete="off" oninput="onTokenInput()" style="flex:1">
+            <button class="btn btn-ghost" onclick="toggleTokenVis()" id="visBtn" style="padding:8px 12px;white-space:nowrap;flex-shrink:0">👁 Show</button>
+          </div>
+          <div class="hint">Settings → Account → Approved Integrations → + New Access Token · <a onclick="clearSaved()" style="color:#f87171;cursor:pointer;text-decoration:underline;">Clear saved data</a></div>
+        </div>
+
+        <hr>
+
+        <div class="field">
+          <label>Roll Call Region</label>
+          <select id="rollcallRegion">
+            <option value="rollcall-eu.instructure.com">EU — rollcall-eu.instructure.com (default)</option>
+            <option value="rollcall.instructure.com">US — rollcall.instructure.com</option>
+          </select>
+        </div>
+
+        <hr>
+
+        <div class="row3">
+          <div class="field">
+            <label>Session Duration (min)</label>
+            <input type="number" id="sessDur" value="90" min="10" max="360">
+          </div>
+          <div class="field">
+            <label>Late Join Threshold (min)</label>
+            <input type="number" id="lateThresh" value="15" min="0" max="60">
+          </div>
+          <div class="field">
+            <label>Min Attendance Fraction</label>
+            <input type="number" id="minFrac" value="0.75" step="0.05" min="0.1" max="1">
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="btn btn-go" onclick="discoverIds()">Discover Course IDs →</button>
+        </div>
+
+        <div class="logbox" id="cfgLog"></div>
+
+        <div id="idsPanel" style="display:none; margin-top:16px;">
+          <div class="row2" style="margin-bottom:14px;">
+            <div class="field">
+              <label>Assignment ID (auto)</label>
+              <input type="text" id="assignId" readonly>
+            </div>
+            <div class="field">
+              <label>Section ID (auto)</label>
+              <input type="text" id="secId" readonly>
+            </div>
+          </div>
+          <div class="field">
+            <label>Section ID Override (optional)</label>
+            <input type="text" id="secOverride" placeholder="Leave blank to use auto-detected above">
+          </div>
+          <div class="btns">
+            <button class="btn btn-go" onclick="jump(1)">Next: Upload CSV →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       STEP 1 — Upload CSV
+  ════════════════════════════════════════ -->
+  <div class="step-section" id="s1">
+    <div class="card">
+      <div class="card-hdr"><h2>📄 Zoom / Teams Attendance CSV</h2></div>
+      <div class="card-body">
+        <div class="alert alert-info">
+          Expected columns: <strong>Email, First name, Last name, Duration, Time joined</strong><br>
+          Session date &amp; time are auto-detected from the filename — e.g. <code>meeting_2025_03_09_11_30.csv</code>
+        </div>
+
+        <div class="drop-zone" id="dropZone"
+          ondragover="ev.preventDefault();this.classList.add('over')"
+          ondragleave="this.classList.remove('over')"
+          ondrop="onDrop(event)">
+          <input type="file" id="csvFile" accept=".csv" onchange="onFile(event)">
+          <div class="drop-icon">📎</div>
+          <div class="drop-label">Drop CSV here or <strong>click to browse</strong></div>
+        </div>
+        <div id="filePill" style="display:none"></div>
+
+        <hr>
+        <div class="row2">
+          <div class="field">
+            <label>Session Date</label>
+            <input type="text" id="sessDate" placeholder="YYYY-MM-DD">
+            <div class="hint">Auto-detected from filename if available</div>
+          </div>
+          <div class="field">
+            <label>Session Start Time</label>
+            <input type="text" id="sessStart" placeholder="11:30 AM">
+            <div class="hint">Auto-detected from filename if available</div>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="btn btn-ghost" onclick="jump(0)">← Back</button>
+          <button class="btn btn-go" id="processBtn" onclick="processCSV()" disabled>Process CSV →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       STEP 2 — Preview
+  ════════════════════════════════════════ -->
+  <div class="step-section" id="s2">
+    <div class="card">
+      <div class="card-hdr"><h2>👥 Attendance Preview</h2></div>
+      <div class="tab-bar">
+        <div class="tab on" id="t-all"     onclick="filterTab('all')">All</div>
+        <div class="tab"    id="t-present" onclick="filterTab('present')">Present</div>
+        <div class="tab"    id="t-late"    onclick="filterTab('late')">Late</div>
+        <div class="tab"    id="t-absent"  onclick="filterTab('absent')">Absent</div>
+      </div>
+      <div class="card-body">
+        <div id="statsBlock"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Name</th><th>Email</th>
+                <th>Joined</th><th>Duration</th>
+                <th>Status</th><th>Reason</th><th>Override</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="btns">
+          <button class="btn btn-ghost" onclick="jump(1)">← Back</button>
+          <button class="btn btn-go" onclick="jump(3)">Build Bookmarklet →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       STEP 3 — Bookmarklet
+  ════════════════════════════════════════ -->
+  <div class="step-section" id="s3">
+    <div class="card">
+      <div class="card-hdr"><h2>🔖 Your Automation Bookmarklet</h2></div>
+      <div class="card-body">
+
+        <div class="alert alert-success" id="bmSummary">
+          ✅ Bookmarklet ready — baked with session data for <strong id="bmDate"></strong>
+        </div>
+
+        <!-- One-time setup -->
+        <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">
+          ONE-TIME: Drag to your bookmarks bar
+        </div>
+        <div style="text-align:center;">
+          <a id="bmLink" href="#" class="bm-drag-target" title="Drag this to your bookmarks bar">
+            🎯 Run Roll Call Attendance
+          </a>
+          <div class="bm-label">Drag this to your bookmarks bar ↑ — or click the button below to copy</div>
+        </div>
+
+        <div class="btns" style="justify-content:center;">
+          <button class="btn btn-sky" onclick="copyBM()">📋 Copy Bookmarklet Code</button>
+        </div>
+
+        <hr>
+
+        <!-- How to use -->
+        <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;">
+          Every session: 3 steps
+        </div>
+
+        <div class="how-list">
+          <div class="how-item">
+            <div class="how-n">1</div>
+            <div class="how-t">
+              Open this Roll Call URL in your browser:<br>
+              <div class="roll-url-box" id="rcUrlBox">—</div>
+              <a onclick="openRCUrl()" style="font-size:11px; cursor:pointer;">↗ Open now</a>
+            </div>
+          </div>
+          <div class="how-item">
+            <div class="how-n">2</div>
+            <div class="how-t">
+              Wait for the student list to load fully. You'll see names with checkboxes or status buttons.
+            </div>
+          </div>
+          <div class="how-item">
+            <div class="how-n">3</div>
+            <div class="how-t">
+              <strong>Click the bookmarklet</strong> in your bookmarks bar.<br>
+              It will: navigate to <strong id="bmDateInline"></strong>, mark all <strong id="bmCount"></strong> students, and show a live overlay with progress.
+            </div>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="alert alert-warn">
+          ⚠️ This bookmarklet contains your session data (<strong id="bmDate2"></strong>).
+          For the next session, come back to this setup page, upload the new CSV, and regenerate.
+        </div>
+
+        <div class="btns">
+          <button class="btn btn-ghost" onclick="jump(2)">← Back to Preview</button>
+          <button class="btn btn-go" onclick="buildBM()">🔄 Regenerate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const G = {
+  base: '', courseId: '', assignId: '', secId: '', token: '',
+  region: 'rollcall-eu.instructure.com',
+  sessDur: 90, lateThresh: 15, minFrac: 0.75,
+  date: '', start: '',
+  raw: [],      // parsed CSV rows
+  results: [],  // with status
+  overrides: {},
+  _file: null,
+  _bm: '',
+};
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function jump(n) {
+  document.querySelectorAll('.step-section').forEach((el, i) => el.classList.toggle('on', i === n));
+  document.querySelectorAll('.prog-step').forEach((el, i) => {
+    el.classList.remove('on', 'was');
+    if (i === n) el.classList.add('on');
+    else if (i < n) el.classList.add('was');
+  });
+  if (n === 3) buildBM();
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS API
+// ═══════════════════════════════════════════════════════
+function clog(msg, cls='lg') {
+  const b = document.getElementById('cfgLog');
+  b.style.display = 'block';
+  const d = document.createElement('div');
+  d.className = cls; d.textContent = msg;
+  b.appendChild(d); b.scrollTop = b.scrollHeight;
+}
+
+async function canvasAll(base, token, path) {
+  let url = `${base}/api/v1/${path}?per_page=100`;
+  const out = [];
+  while (url) {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    const data = await r.json();
+    if (Array.isArray(data)) out.push(...data);
+    else return data;
+    const link = r.headers.get('Link') || '';
+    const nx = link.match(/<([^>]+)>;\s*rel="next"/);
+    url = nx ? nx[1] : null;
+  }
+  return out;
+}
+
+async function discoverIds() {
+  const base  = document.getElementById('canvasBase').value.trim().replace(/\/$/, '');
+  const token = document.getElementById('apiToken').value.trim();
+  const raw   = document.getElementById('courseUrl').value.trim();
+  if (!base || !token || !raw) { alert('Fill in all three fields above.'); return; }
+  const m = raw.match(/\/courses\/(\d+)/);
+  if (!m) { alert('Cannot find course ID in URL.'); return; }
+  G.base = base; G.token = token; G.courseId = m[1];
+  G.region = document.getElementById('rollcallRegion').value;
+
+  document.getElementById('cfgLog').innerHTML = '';
+  clog(`Querying course ${G.courseId}…`);
+
+  try {
+    // Assignments
+    const asgns = await canvasAll(base, token, `courses/${G.courseId}/assignments`);
+    clog(`  Found ${asgns.length} assignments`);
+    const a = asgns.find(x => /roll.?call|attendance/i.test(x.name || ''));
+    if (!a) {
+      clog(`❌ No Roll Call assignment found. Names: ${asgns.slice(0,8).map(x=>x.name).join(', ')}`, 'lg-err');
+      return;
+    }
+    clog(`✅ Assignment: "${a.name}" (${a.id})`, 'lg-ok');
+    G.assignId = String(a.id);
+    document.getElementById('assignId').value = a.id;
+
+    // Sections
+    const secs = await canvasAll(base, token, `courses/${G.courseId}/sections`);
+    if (!secs.length) { clog('❌ No sections found', 'lg-err'); return; }
+    const s = secs[0];
+    clog(`✅ Section: "${s.name}" (${s.id})`, 'lg-ok');
+    if (secs.length > 1) clog(`   (${secs.length} total — using first; override below if needed)`);
+    G.secId = String(s.id);
+    document.getElementById('secId').value = s.id;
+
+    document.getElementById('idsPanel').style.display = 'block';
+    clog('🎉 Ready — upload your CSV next', 'lg-ok');
+  } catch(e) { clog(`❌ ${e.message}`, 'lg-err'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// CSV
+// ═══════════════════════════════════════════════════════
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('over');
+  const f = e.dataTransfer?.files[0]; if (f) handleFile(f);
+}
+function onFile(e) { const f = e.target.files[0]; if (f) handleFile(f); }
+
+function handleFile(f) {
+  G._file = f;
+  document.getElementById('filePill').style.display = 'block';
+  document.getElementById('filePill').innerHTML =
+    `<div class="file-pill">📄 ${f.name}<span>${(f.size/1024).toFixed(1)} KB</span></div>`;
+
+  // Auto-detect date+time
+  const fn = f.name;
+  let date = '', time = '';
+  let m = fn.match(/(20\d\d)_(\d{2})_(\d{2})_(\d{2})_(\d{2})/);
+  if (!m) m = fn.match(/(20\d\d)-(\d{2})-(\d{2})_(\d{2})-(\d{2})/);
+  if (m) {
+    date = `${m[1]}-${m[2]}-${m[3]}`;
+    const h = parseInt(m[4]), mi = m[5];
+    time = `${h % 12 || 12}:${mi} ${h >= 12 ? 'PM' : 'AM'}`;
+  } else {
+    m = fn.match(/(20\d\d)[_-](\d{2})[_-](\d{2})/);
+    if (m) date = `${m[1]}-${m[2]}-${m[3]}`;
+  }
+  if (date) document.getElementById('sessDate').value = date;
+  if (time) document.getElementById('sessStart').value = time;
+  document.getElementById('processBtn').disabled = false;
+}
+
+function parseCSVText(txt) {
+  const lines = txt.trim().split(/\r?\n/);
+  const hdrs  = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g,''));
+    const r = {};
+    hdrs.forEach((h,i) => r[h] = vals[i] || '');
+    const email = (r['Email'] || r['email'] || '').toLowerCase().trim();
+    if (!email || email.includes('*') || !email.includes('@')) return null;
+    return {
+      email,
+      name: `${r['First name']||r['first name']||r['First Name']||''} ${r['Last name']||r['last name']||r['Last Name']||''}`.trim(),
+      duration:   r['Duration']   || r['duration']   || '',
+      timeJoined: r['Time joined']|| r['Join Time']   || r['time joined'] || '',
+      timeExited: r['Time exited']|| r['Leave Time']  || '',
+    };
+  }).filter(Boolean);
+}
+
+function normT(t) {
+  return t.trim().replace(/(\d)(AM|PM|am|pm)/,'$1 $2').toUpperCase();
+}
+function parseMins(s) {
+  const h = (s||'').match(/(\d+)\s*h/i), m = (s||'').match(/(\d+)\s*m/i);
+  return (h ? +h[1]*60 : 0) + (m ? +m[1] : 0);
+}
+function calcStatus(joined, dur, date, start) {
+  const minNeeded = G.sessDur * G.minFrac;
+  try {
+    const s0 = new Date(`${date} ${normT(start)}`);
+    const j0 = new Date(`${date} ${normT(joined)}`);
+    if (isNaN(s0)||isNaN(j0)) return ['late','Cannot parse time'];
+    const late = (j0 - s0) / 60000;
+    const mins = parseMins(dur);
+    const reasons = [];
+    if (late > G.lateThresh)   reasons.push(`joined ${late.toFixed(0)} min late`);
+    if (mins > 0 && mins < minNeeded) reasons.push(`stayed ${mins} min (need ${minNeeded})`);
+    return reasons.length ? ['late', reasons.join(' | ')] : ['present', `on time · ${mins} min`];
+  } catch(e) { return ['late', e.message]; }
+}
+
+function processCSV() {
+  const date  = document.getElementById('sessDate').value.trim();
+  const start = document.getElementById('sessStart').value.trim();
+  if (!date)  { alert('Enter session date.'); return; }
+  if (!start) { alert('Enter session start time.'); return; }
+  G.date  = date; G.start = start;
+  G.sessDur   = +document.getElementById('sessDur').value || 90;
+  G.lateThresh = +document.getElementById('lateThresh').value || 15;
+  G.minFrac   = +document.getElementById('minFrac').value || 0.75;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const rows = parseCSVText(e.target.result);
+    if (!rows.length) { alert('No valid students found.'); return; }
+    G.raw = rows;
+    G.results = rows.map(r => {
+      const [status, reason] = calcStatus(r.timeJoined, r.duration, date, start);
+      return { ...r, status, reason };
+    });
+    G.overrides = {};
+    renderTable(G.results);
+    jump(2);
+  };
+  reader.readAsText(G._file);
+}
+
+// ═══════════════════════════════════════════════════════
+// PREVIEW TABLE
+// ═══════════════════════════════════════════════════════
+function eff(r) { return G.overrides[r.email] || r.status; }
+
+function renderTable(rows) {
+  const p = rows.filter(r => eff(r)==='present').length;
+  const l = rows.filter(r => eff(r)==='late').length;
+  const a = rows.filter(r => eff(r)==='absent').length;
+  const n = rows.length;
+
+  document.getElementById('statsBlock').innerHTML = `
+    <div class="stat-bar">
+      <div class="sb-p" style="flex:${p||0}"></div>
+      <div class="sb-l" style="flex:${l||0}"></div>
+      <div class="sb-a" style="flex:${a||0}"></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-item"><div class="sdot" style="background:var(--go)"></div>${p} Present</div>
+      <div class="stat-item"><div class="sdot" style="background:var(--amber)"></div>${l} Late</div>
+      <div class="stat-item"><div class="sdot" style="background:var(--red)"></div>${a} Absent</div>
+      <div class="stat-item" style="color:var(--txt3)">${n} total</div>
+    </div>`;
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  const bmps = {present:'<span class="badge bp">✓ Present</span>', late:'<span class="badge bl">⚠ Late</span>', absent:'<span class="badge ba">✕ Absent</span>'};
+  rows.forEach((r, i) => {
+    const e = eff(r);
+    const tr = document.createElement('tr');
+    tr.dataset.s = e;
+    tr.innerHTML = `
+      <td style="color:var(--txt3)">${i+1}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.name}">${r.name||'—'}</td>
+      <td style="color:var(--txt3);font-size:10px">${r.email}</td>
+      <td>${r.timeJoined||'—'}</td>
+      <td>${r.duration||'—'}</td>
+      <td>${bmps[e]}</td>
+      <td style="color:var(--txt3);font-size:10px">${r.reason}</td>
+      <td><select class="ovr-sel" onchange="setOvr('${r.email}',this,this.value)">
+        <option value="">auto</option>
+        <option value="present">Present</option>
+        <option value="late">Late</option>
+        <option value="absent">Absent</option>
+      </select></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function setOvr(email, sel, val) {
+  if (val) G.overrides[email] = val; else delete G.overrides[email];
+  const tr = sel.closest('tr');
+  const e  = val || G.results.find(r => r.email===email)?.status || 'present';
+  tr.dataset.s = e;
+  const bmps = {present:'<span class="badge bp">✓ Present</span>', late:'<span class="badge bl">⚠ Late</span>', absent:'<span class="badge ba">✕ Absent</span>'};
+  tr.cells[5].innerHTML = bmps[e];
+}
+
+function filterTab(f) {
+  ['all','present','late','absent'].forEach(x => document.getElementById('t-'+x).classList.toggle('on', x===f));
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    tr.style.display = (f==='all' || tr.dataset.s===f) ? '' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOKMARKLET BUILDER
+// ═══════════════════════════════════════════════════════
+function buildBM() {
+  const secId  = document.getElementById('secOverride').value.trim() || G.secId;
+  const region = G.region;
+  const rcUrl  = `https://${region}/sections/${secId}`;
+
+  const finalList = G.results.map(r => ({
+    n: r.name, e: r.email, s: G.overrides[r.email] || r.status
+  }));
+
+  // The injected overlay + automation script
+  // This runs INSIDE rollcall-eu.instructure.com — full DOM access
+  const innerCode = `
+(function(){
+  if(document.getElementById('_rca_panel')) { document.getElementById('_rca_panel').remove(); return; }
+
+  const STUDENTS=${JSON.stringify(finalList)};
+  const DATE="${G.date}";
+  const CLICKS={present:1,absent:2,late:3};
+  const D=ms=>new Promise(r=>setTimeout(r,ms));
+
+  // ── Inject overlay UI ──
+  const panel=document.createElement('div');
+  panel.id='_rca_panel';
+  panel.innerHTML=\`
+    <div id="_rca_inner" style="
+      position:fixed;bottom:24px;right:24px;z-index:2147483647;
+      width:320px;background:#0e1117;border:1px solid #252d3d;
+      border-radius:10px;font-family:monospace;font-size:12px;
+      color:#e2e8f0;box-shadow:0 8px 40px rgba(0,0,0,.7);
+      overflow:hidden;user-select:none;
+    ">
+      <div style="padding:12px 16px;border-bottom:1px solid #252d3d;display:flex;align-items:center;gap:10px;background:#141720">
+        <span style="font-size:14px">🎯</span>
+        <div>
+          <div style="font-weight:600;font-size:12px">Roll Call Automator</div>
+          <div style="color:#64748b;font-size:10px">Session: ${G.date} · \${STUDENTS.length} students</div>
+        </div>
+        <button onclick="document.getElementById('_rca_panel').remove()" style="margin-left:auto;background:none;border:none;color:#64748b;font-size:16px;cursor:pointer;padding:0 4px">✕</button>
+      </div>
+      <div style="padding:14px 16px">
+        <div id="_rca_status" style="color:#94a3b8;margin-bottom:10px;font-size:11px">Initializing…</div>
+        <div style="background:#141720;border-radius:4px;height:5px;margin-bottom:10px;overflow:hidden">
+          <div id="_rca_bar" style="height:100%;background:#22d3a0;width:0%;transition:width .3s ease;border-radius:4px"></div>
+        </div>
+        <div id="_rca_log" style="background:#070a0f;border:1px solid #1e2535;border-radius:4px;padding:10px;max-height:160px;overflow-y:auto;font-size:10px;line-height:1.8;"></div>
+        <div id="_rca_done" style="display:none;margin-top:12px">
+          <div style="color:#22d3a0;font-size:11px;margin-bottom:8px" id="_rca_summary"></div>
+          <button onclick="document.getElementById('_rca_panel').remove()" style="width:100%;padding:8px;background:#22d3a0;color:#0e1117;border:none;border-radius:4px;font-family:monospace;font-size:12px;font-weight:600;cursor:pointer">Close ✓</button>
+        </div>
+      </div>
+    </div>
+  \`;
+  document.body.appendChild(panel);
+
+  function log(msg,col){
+    const b=document.getElementById('_rca_log');
+    if(!b)return;
+    const d=document.createElement('div');
+    d.style.color=col||'#7dd3fc'; d.textContent=msg;
+    b.appendChild(d); b.scrollTop=b.scrollHeight;
+  }
+  function setStatus(msg){
+    const el=document.getElementById('_rca_status');
+    if(el) el.textContent=msg;
+  }
+  function setBar(pct){
+    const el=document.getElementById('_rca_bar');
+    if(el) el.style.width=pct+'%';
+  }
+
+  function findBtn(name){
+    const parts=name.toLowerCase().split(' ').filter(Boolean);
+    for(const a of document.querySelectorAll('a.student-toggle,[class*="student-toggle"]')){
+      if(parts.every(p=>a.textContent.toLowerCase().includes(p))) return a;
+    }
+    for(const li of document.querySelectorAll('ol.student-list-display li,ul.roster li,.student-row,[data-student]')){
+      if(parts.every(p=>li.textContent.toLowerCase().includes(p))){
+        const a=li.querySelector('a[class*="student"],a[class*="toggle"],a');
+        if(a) return a;
+      }
+    }
+    return null;
+  }
+
+  // ── Navigate date picker ──
+  async function goToDate(dateStr){
+    const target=new Date(dateStr+'T12:00:00');
+    setStatus('Navigating to '+dateStr+'…');
+    log('📅 Navigating to '+dateStr);
+
+    // Try ui-datepicker trigger
+    const icon=document.querySelector('img.ui-datepicker-trigger,[class*="datepicker-trigger"],[aria-label*="date" i][role="button"]');
+    if(icon){
+      icon.click(); await D(600);
+      // Navigate months
+      for(let i=0;i<24;i++){
+        const hdr=document.querySelector('.ui-datepicker-title');
+        if(!hdr) break;
+        const cur=new Date(hdr.textContent.trim()+' 1');
+        if(isNaN(cur)) break;
+        const diff=(target.getFullYear()-cur.getFullYear())*12+(target.getMonth()-cur.getMonth());
+        if(diff===0) break;
+        const btn=document.querySelector(diff>0?'.ui-datepicker-next,[title="Next"],[aria-label*="next" i]':'.ui-datepicker-prev,[title="Prev"],[aria-label*="prev" i]');
+        if(!btn) break;
+        btn.click(); await D(250);
+      }
+      // Click day
+      const day=String(target.getDate());
+      for(const cell of document.querySelectorAll('.ui-datepicker-calendar td a,.ui-datepicker td a')){
+        if(cell.textContent.trim()===day){ cell.click(); await D(600); log('✅ Date selected','#22d3a0'); return; }
+      }
+    }
+
+    // Fallback: arrow prev/next navigation
+    for(let i=0;i<60;i++){
+      const el=document.querySelector('[class*="date-display"],[id*="date-label"],.current-date');
+      if(el){
+        const txt=el.textContent.trim();
+        const cur=new Date(txt);
+        if(!isNaN(cur)){
+          const diff=(target-cur)/86400000;
+          if(Math.abs(diff)<1) { log('✅ Already on correct date','#22d3a0'); return; }
+          const btn=document.querySelector(diff>0?'[class*="next"],[aria-label*="next" i]':'[class*="prev"],[aria-label*="prev" i]');
+          if(btn){ btn.click(); await D(350); continue; }
+        }
+      }
+      break;
+    }
+    log('⚠️ Could not auto-navigate date — verify manually','#fbbf24');
+  }
+
+  // ── Main loop ──
+  (async()=>{
+    // Wait for student list
+    setStatus('Waiting for student list…');
+    let found=false;
+    for(let i=0;i<30;i++){
+      if(document.querySelector('a.student-toggle,ol.student-list-display,.student-name')){found=true;break;}
+      await D(500);
+    }
+    if(!found){ setStatus('❌ Student list not found'); log('❌ Roll Call student list not visible. Make sure Roll Call is open.','#f87171'); return; }
+    log('✅ Student list detected','#22d3a0');
+
+    await goToDate(DATE);
+    await D(800);
+
+    setStatus('Marking attendance…');
+    log('Starting '+STUDENTS.length+' students…');
+    let ok=0,miss=0;const missed=[];
+
+    for(let i=0;i<STUDENTS.length;i++){
+      const s=STUDENTS[i];
+      const pct=Math.round((i/STUDENTS.length)*100);
+      setBar(pct);
+      setStatus(\`[\${i+1}/\${STUDENTS.length}] \${s.n} → \${s.s}\`);
+
+      const btn=findBtn(s.n);
+      if(!btn){ log('❌ Not found: '+s.n,'#f87171'); missed.push(s.n); miss++; continue; }
+
+      // Reset (4 clicks = full cycle back to unmarked)
+      for(let x=0;x<4;x++){ btn.scrollIntoView({block:'nearest',behavior:'smooth'}); btn.click(); await D(100); }
+      // Set status
+      const clicks=CLICKS[s.s]||1;
+      for(let x=0;x<clicks;x++){ btn.click(); await D(160); }
+      ok++;
+      log(\`✓ \${s.n} → \${s.s}\`, s.s==='present'?'#22d3a0':s.s==='late'?'#fbbf24':'#f87171');
+      await D(120);
+    }
+
+    setBar(100);
+    setStatus('Done!');
+    const sumEl=document.getElementById('_rca_summary');
+    if(sumEl) sumEl.textContent=\`✅ \${ok} marked · \${miss} not found\${missed.length?' ('+missed.join(', ')+')':''}\`;
+    document.getElementById('_rca_done').style.display='block';
+    if(miss) log('⚠️ Not found: '+missed.join(', '),'#fbbf24');
+    log('🎉 Complete! '+ok+'/'+STUDENTS.length+' marked.','#22d3a0');
+  })();
+})();
+  `.trim();
+
+  // Minify: collapse whitespace to a safe minimum
+  const min = innerCode
+    .replace(/\/\/ .*$/gm, '')       // strip comments
+    .replace(/\n\s*/g, ' ')          // collapse newlines
+    .replace(/\s{2,}/g, ' ')         // collapse spaces
+    .trim();
+
+  const bmCode = `javascript:${encodeURIComponent(min)}`;
+
+  G._bm = bmCode;
+  G._rcUrl = rcUrl;
+
+  // Update UI
+  document.getElementById('bmLink').href = bmCode;
+  document.getElementById('bmLink').setAttribute('href', bmCode);
+  document.getElementById('rcUrlBox').textContent = rcUrl;
+  document.getElementById('bmDate').textContent = G.date;
+  document.getElementById('bmDate2').textContent = G.date;
+  document.getElementById('bmDateInline').textContent = G.date;
+  document.getElementById('bmCount').textContent = finalList.length;
+}
+
+function openRCUrl() {
+  if (G._rcUrl) window.open(G._rcUrl, '_blank');
+}
+
+
+// ═══════════════════════════════════════════════════════
+// LOCALSTORAGE PERSISTENCE
+// ═══════════════════════════════════════════════════════
+const LS_KEY = 'rca_config';
+
+function saveToLS() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      canvasBase: document.getElementById('canvasBase').value,
+      courseUrl:  document.getElementById('courseUrl').value,
+      apiToken:   document.getElementById('apiToken').value,
+      region:     document.getElementById('rollcallRegion').value,
+      sessDur:    document.getElementById('sessDur').value,
+      lateThresh: document.getElementById('lateThresh').value,
+      minFrac:    document.getElementById('minFrac').value,
+    }));
+  } catch(e) {}
+}
+
+function loadFromLS() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const c = JSON.parse(raw);
+    if (c.canvasBase) document.getElementById('canvasBase').value = c.canvasBase;
+    if (c.courseUrl)  document.getElementById('courseUrl').value  = c.courseUrl;
+    if (c.apiToken) {
+      document.getElementById('apiToken').value = c.apiToken;
+      document.getElementById('savedBadge').style.display = 'inline';
+    }
+    if (c.region) document.getElementById('rollcallRegion').value = c.region;
+    if (c.sessDur)    document.getElementById('sessDur').value    = c.sessDur;
+    if (c.lateThresh) document.getElementById('lateThresh').value = c.lateThresh;
+    if (c.minFrac)    document.getElementById('minFrac').value    = c.minFrac;
+  } catch(e) {}
+}
+
+function clearSaved() {
+  if (!confirm('Clear all saved configuration?')) return;
+  localStorage.removeItem(LS_KEY);
+  document.getElementById('apiToken').value  = '';
+  document.getElementById('courseUrl').value = '';
+  document.getElementById('savedBadge').style.display = 'none';
+}
+
+function onTokenInput() {
+  clearTimeout(onTokenInput._t);
+  onTokenInput._t = setTimeout(() => {
+    saveToLS();
+    const v = document.getElementById('apiToken').value.trim();
+    document.getElementById('savedBadge').style.display = v ? 'inline' : 'none';
+  }, 800);
+}
+
+function toggleTokenVis() {
+  const inp = document.getElementById('apiToken');
+  const btn = document.getElementById('visBtn');
+  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '\u{1F648} Hide'; }
+  else                         { inp.type = 'password'; btn.textContent = '\u{1F441} Show'; }
+}
+
+// Auto-save when other config fields change
+['canvasBase','courseUrl','rollcallRegion','sessDur','lateThresh','minFrac'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', saveToLS);
+});
+
+// Restore on load
+loadFromLS();
+
+async function copyBM() {
+  if (!G._bm) { alert('Generate first.'); return; }
+  try {
+    await navigator.clipboard.writeText(G._bm);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = G._bm; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  const btn = event.target;
+  btn.textContent = '✅ Copied!';
+  setTimeout(() => btn.textContent = '📋 Copy Bookmarklet Code', 2000);
+}
+</script>
+</body>
+</html>
