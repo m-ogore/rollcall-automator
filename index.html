@@ -339,8 +339,9 @@ hr { border: none; border-top: 1px solid var(--wire); margin: 20px 0; }
       <div class="card-body">
 
         <div class="alert alert-info">
-          💡 Everything runs in your browser — your token never leaves this page.
-          Once set up, a single bookmarklet click inside Roll Call does everything automatically.
+          💡 Canvas blocks direct API calls from external sites (CORS). Instead, a one-time
+          <strong>Setup bookmarklet</strong> fetches IDs from within Canvas and sends them here automatically.
+          Your token never leaves your browser.
         </div>
 
         <div class="field">
@@ -427,36 +428,58 @@ hr { border: none; border-top: 1px solid var(--wire); margin: 20px 0; }
           </div>
         </div>
 
-        <div class="btns">
-          <button class="btn btn-go" onclick="discoverIds()">Discover Course IDs →</button>
+        <!-- ── Step A: Setup Bookmarklet ── -->
+        <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">
+          Step 1 of 2 — Get course IDs (one-time per course)
         </div>
 
-        <div class="logbox" id="cfgLog"></div>
+        <div class="alert alert-warn" id="setupBmInstructions">
+          <div>
+            <div style="margin-bottom:8px;">Drag this bookmarklet to your bookmarks bar, then navigate to your <strong>Canvas course page</strong> and click it:</div>
+            <div style="text-align:center;margin:10px 0;">
+              <a id="setupBmLink" href="#" class="bm-drag-target" style="display:inline-flex;margin:0 auto;">
+                🔍 Get Roll Call IDs
+              </a>
+              <div class="bm-label">Drag to bookmarks bar → click on Canvas course page</div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;line-height:1.7;">
+              It will fetch your Assignment + Section IDs from Canvas and send them back here automatically.
+            </div>
+          </div>
+        </div>
 
-        <div id="idsPanel" style="display:none; margin-top:16px;">
-          <div id="manualIdsHint" style="display:none;" class="alert alert-warn" style="margin-bottom:12px;">
-            ✏️ CORS blocked auto-discovery. You can find these IDs manually:<br>
-            <strong>Assignment ID:</strong> open the Roll Call assignment in Canvas, copy the number from the URL (.../assignments/<em>ID</em>)<br>
-            <strong>Section ID:</strong> open Canvas → Course Settings → Sections, the ID is in the URL
+        <!-- IDs panel — filled automatically or manually -->
+        <div id="idsPanel" style="margin-top:4px;">
+          <div id="idsAutoFilled" style="display:none;" class="alert alert-success" style="margin-bottom:12px;">
+            ✅ IDs received from Canvas automatically!
           </div>
           <div class="row2" style="margin-bottom:14px;">
             <div class="field">
-              <label>Assignment ID</label>
-              <input type="text" id="assignId" placeholder="e.g. 12345">
+              <label>Assignment ID <span id="assignIdBadge" style="display:none;color:#22d3a0;font-size:9px;">● AUTO</span></label>
+              <input type="text" id="assignId" placeholder="Auto-filled by bookmarklet">
             </div>
             <div class="field">
-              <label>Section ID</label>
-              <input type="text" id="secId" placeholder="e.g. 67890">
+              <label>Section ID <span id="secIdBadge" style="display:none;color:#22d3a0;font-size:9px;">● AUTO</span></label>
+              <input type="text" id="secId" placeholder="Auto-filled by bookmarklet">
             </div>
           </div>
+          <details style="margin-bottom:14px;">
+            <summary style="font-family:var(--mono);font-size:11px;color:var(--txt3);cursor:pointer;">✏️ Enter IDs manually instead</summary>
+            <div style="padding:10px 0 0 0;font-family:var(--mono);font-size:11px;color:var(--txt3);line-height:1.8;">
+              <strong>Assignment ID:</strong> open Roll Call assignment in Canvas → copy number from URL <code>…/assignments/<em>ID</em></code><br>
+              <strong>Section ID:</strong> Canvas → Admin → Courses → Sections → ID in URL, or ask your Canvas admin
+            </div>
+          </details>
           <div class="field">
             <label>Section ID Override (optional)</label>
-            <input type="text" id="secOverride" placeholder="Leave blank to use auto-detected above">
+            <input type="text" id="secOverride" placeholder="Leave blank to use the section ID above">
           </div>
           <div class="btns">
-            <button class="btn btn-go" onclick="syncManualIds(); jump(1)">Next: Upload CSV →</button>
+            <button class="btn btn-go" onclick="if(syncManualIds()) jump(1)">Next: Upload CSV →</button>
           </div>
         </div>
+
+        <div class="logbox" id="cfgLog"></div>
       </div>
     </div>
   </div>
@@ -644,8 +667,79 @@ function jump(n) {
 }
 
 // ═══════════════════════════════════════════════════════
-// CANVAS API
+// SETUP BOOKMARKLET — runs ON Canvas, sends IDs back here
 // ═══════════════════════════════════════════════════════
+function buildSetupBm() {
+  const appUrl = window.location.href.split('?')[0].split('#')[0];
+
+  // This code runs inside Canvas (same origin) — no CORS issues
+  const inner = `(async function(){
+  const base = location.origin;
+  const token = prompt('Paste your Canvas Access Token:');
+  if (!token) return;
+
+  const courseMatch = location.pathname.match(/\/courses\/(\d+)/);
+  if (!courseMatch) { alert('Navigate to a Canvas course page first, then click this bookmarklet.'); return; }
+  const courseId = courseMatch[1];
+
+  async function get(path) {
+    const r = await fetch(base+'/api/v1/'+path+'?per_page=100', {
+      headers: { Authorization: 'Bearer '+token, Accept: 'application/json' }
+    });
+    if (!r.ok) throw new Error(r.status+' '+r.statusText);
+    return r.json();
+  }
+
+  try {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#0e1117;color:#22d3a0;font-family:monospace;font-size:13px;padding:16px 20px;border:1px solid #252d3d;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.6);min-width:260px;';
+    div.innerHTML = '<div style="margin-bottom:6px;font-weight:600;">🔍 Roll Call ID Finder</div><div id="_rca_msg">Fetching…</div>';
+    document.body.appendChild(div);
+    const msg = id => { const el=document.getElementById('_rca_msg'); if(el) el.textContent=id; };
+
+    msg('Fetching assignments…');
+    const asgns = await get('courses/'+courseId+'/assignments');
+    const asgn = asgns.find(a => /roll.?call|attendance/i.test(a.name||''));
+    if (!asgn) {
+      const names = asgns.slice(0,8).map(a=>a.name).join(', ');
+      div.style.borderColor='#f87171';div.style.color='#f87171';
+      msg('No Roll Call assignment found. Assignments: '+names);
+      setTimeout(()=>div.remove(),6000);
+      return;
+    }
+
+    msg('Fetching sections…');
+    const secs = await get('courses/'+courseId+'/sections');
+    if (!secs.length) { msg('No sections found.'); return; }
+
+    const courseName = document.querySelector('.ic-app-header__logomark-container+.ic-app-header__main-navigation a, .context_course_link, h1.course-name') ?.textContent?.trim() || 'Course '+courseId;
+
+    const params = new URLSearchParams({
+      courseId, courseName,
+      assignId: asgn.id,
+      secId: secs[0].id,
+      courseUrl: base+'/courses/'+courseId,
+      canvasBase: base,
+      token,
+    });
+
+    msg('✅ Done! Sending to app…');
+    div.style.color='#22d3a0';
+    setTimeout(()=>{ window.open('${appUrl}?'+params.toString(), '_blank'); div.remove(); }, 800);
+  } catch(e) {
+    alert('Error: '+e.message);
+  }
+})();`;
+
+  const minified = inner
+    .replace(/\/\/.*/g, '')
+    .replace(/\n\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return 'javascript:' + encodeURIComponent(minified);
+}
+
 function clog(msg, cls='lg') {
   const b = document.getElementById('cfgLog');
   b.style.display = 'block';
@@ -654,122 +748,62 @@ function clog(msg, cls='lg') {
   b.appendChild(d); b.scrollTop = b.scrollHeight;
 }
 
-async function canvasAll(base, token, path) {
-  let url = `${base}/api/v1/${path}?per_page=100`;
-  const out = [];
-  while (url) {
-    let r;
-    try {
-      r = await fetch(url, {
-        method: 'GET',
-        mode: 'cors',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json+canvas-string-ids, application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      });
-    } catch(fetchErr) {
-      // Network-level failure — give a useful CORS diagnosis
-      throw new Error(
-        `Network error: ${fetchErr.message}\n` +
-        `This is usually a CORS issue. Canvas must allow cross-origin requests from this domain.\n` +
-        `Workaround: open your Canvas instance in a tab, then try again — or enter IDs manually below.`
-      );
-    }
-    if (r.status === 401) throw new Error('401 Unauthorized — check your access token.');
-    if (r.status === 404) throw new Error(`404 Not found: ${path}`);
-    if (!r.ok) {
-      let body = '';
-      try { body = await r.text(); } catch(e) {}
-      throw new Error(`${r.status} ${r.statusText}${body ? ': ' + body.slice(0,120) : ''}`);
-    }
-    const data = await r.json();
-    if (Array.isArray(data)) out.push(...data);
-    else return data;
-    const link = r.headers.get('Link') || '';
-    const nx = link.match(/<([^>]+)>;\s*rel="next"/);
-    url = nx ? nx[1] : null;
+// ── Read IDs from URL params (sent back by the setup bookmarklet) ──
+function readUrlParams() {
+  const p = new URLSearchParams(window.location.search);
+  if (!p.has('assignId')) return;
+
+  const courseId   = p.get('courseId')   || '';
+  const courseName = p.get('courseName') || 'Course ' + courseId;
+  const assignId   = p.get('assignId')   || '';
+  const secId      = p.get('secId')      || '';
+  const courseUrl  = p.get('courseUrl')  || '';
+  const canvasBase = p.get('canvasBase') || '';
+  const token      = p.get('token')      || '';
+
+  if (!assignId || !secId) return;
+
+  // Save as a new course (or update existing)
+  const courses = getCourses();
+  let existing = courses.find(c => c.url === courseUrl || c.id === 'c'+courseId);
+  if (existing) {
+    existing.assignId = assignId;
+    existing.secId    = secId;
+    existing.name     = existing.name || courseName;
+    saveCourses(courses);
+    setActiveId(existing.id);
+  } else {
+    const id = 'c' + courseId;
+    courses.push({ id, name: courseName, url: courseUrl, assignId, secId });
+    saveCourses(courses);
+    setActiveId(id);
   }
-  return out;
-}
 
-async function discoverIds() {
-  const base  = document.getElementById('canvasBase').value.trim().replace(/\/$/, '');
-  const token = document.getElementById('apiToken').value.trim();
-  const raw   = document.getElementById('courseUrl').value.trim();
-  if (!base || !token || !raw) { alert('Fill in Canvas Base URL, select/add a course, and enter your token.'); return; }
-  const m = raw.match(/\/courses\/(\d+)/);
-  if (!m) { alert('Cannot find course ID in that URL — expected .../courses/1234'); return; }
-  G.base = base; G.token = token; G.courseId = m[1];
-  G.region = document.getElementById('rollcallRegion').value;
-
-  document.getElementById('cfgLog').innerHTML = '';
-  document.getElementById('cfgLog').style.display = 'block';
-  clog(`Querying course ${G.courseId} on ${base}…`);
-
-  try {
-    // Assignments
-    clog('  Fetching assignments…');
-    const asgns = await canvasAll(base, token, `courses/${G.courseId}/assignments`);
-    clog(`  Found ${asgns.length} assignments`);
-    const a = asgns.find(x => /roll.?call|attendance/i.test(x.name || ''));
-    if (!a) {
-      clog(`❌ No Roll Call assignment found.`, 'lg-err');
-      clog(`   Assignments found: ${asgns.slice(0,10).map(x=>x.name).join(' | ')}`, 'lg-w');
-      clog(`   → Enter Assignment ID and Section ID manually below.`, 'lg-w');
-      document.getElementById('idsPanel').style.display = 'block';
-      return;
-    }
-    clog(`✅ Assignment: "${a.name}" (${a.id})`, 'lg-ok');
-    G.assignId = String(a.id);
-    document.getElementById('assignId').value = a.id;
-
-    // Sections
-    clog('  Fetching sections…');
-    const secs = await canvasAll(base, token, `courses/${G.courseId}/sections`);
-    if (!secs.length) { clog('❌ No sections found', 'lg-err'); return; }
-    const s = secs[0];
-    clog(`✅ Section: "${s.name}" (${s.id})`, 'lg-ok');
-    if (secs.length > 1) clog(`   (${secs.length} total — using first; override below if needed)`);
-    G.secId = String(s.id);
-    document.getElementById('secId').value = s.id;
-
-    document.getElementById('idsPanel').style.display = 'block';
-    clog('🎉 Ready — upload your CSV next', 'lg-ok');
-  } catch(e) {
-    clog(`❌ ${e.message}`, 'lg-err');
-    if (e.message.includes('CORS') || e.message.includes('Network') || e.message.includes('fetch')) {
-      clog('', 'lg');
-      clog('── CORS workaround ──────────────────────────', 'lg-w');
-      clog('1. Open your Canvas site in another tab', 'lg-w');
-      clog('2. Come back here and click Discover again', 'lg-w');
-      clog('   OR enter Assignment ID + Section ID manually:', 'lg-w');
-      document.getElementById('idsPanel').style.display = 'block';
-      document.getElementById('manualIdsHint').style.display = 'block';
-    }
+  // Save canvasBase + token
+  if (canvasBase) document.getElementById('canvasBase').value = canvasBase;
+  if (token) {
+    document.getElementById('apiToken').value = token;
+    document.getElementById('savedBadge').style.display = 'inline';
   }
+  saveGlobal();
+
+  // Show success
+  document.getElementById('assignId').value = assignId;
+  document.getElementById('secId').value    = secId;
+  document.getElementById('idsAutoFilled').style.display = 'block';
+  document.getElementById('assignIdBadge').style.display = 'inline';
+  document.getElementById('secIdBadge').style.display    = 'inline';
+
+  // Clean URL
+  history.replaceState({}, '', window.location.pathname);
+
+  renderCourses();
 }
 
-function syncManualIds() {
-  const aId = document.getElementById('assignId').value.trim();
-  const sId = document.getElementById('secId').value.trim();
-  if (!aId || !sId) { alert('Please enter both Assignment ID and Section ID before continuing.'); return false; }
-  G.assignId = aId;
-  G.secId = sId;
-  // Also update base/token/courseId from current fields
-  G.base    = document.getElementById('canvasBase').value.trim().replace(/\/$/, '');
-  G.token   = document.getElementById('apiToken').value.trim();
-  const raw = document.getElementById('courseUrl').value.trim();
-  const m   = raw.match(/\/courses\/(\d+)/);
-  if (m) G.courseId = m[1];
-  G.region  = document.getElementById('rollcallRegion').value;
-  updateCourseIds(aId, sId);
-  return true;
-}
 
 // ═══════════════════════════════════════════════════════
 // CSV
+
 // ═══════════════════════════════════════════════════════
 function onDrop(e) {
   e.preventDefault();
@@ -1334,19 +1368,17 @@ function clearSaved() {
   if (el) el.addEventListener('change', saveGlobal);
 });
 
-// ── Patch discoverIds to cache IDs into the active course ──
-const _origDiscoverIds = discoverIds;
-discoverIds = async function() {
-  await _origDiscoverIds();
-  // After discovery, cache the found IDs into the active course
-  const aId = document.getElementById('assignId').value;
-  const sId = document.getElementById('secId').value;
-  if (aId && sId) updateCourseIds(aId, sId);
-};
-
 // ── Init ──
 loadGlobal();
 renderCourses();
+// Build setup bookmarklet link
+try {
+  const bm = buildSetupBm();
+  const el = document.getElementById('setupBmLink');
+  if (el) el.href = bm;
+} catch(e) {}
+// Read any IDs passed back from the setup bookmarklet via URL params
+readUrlParams();
 
 async function copyBM() {
   if (!G._bm) { alert('Generate first.'); return; }
