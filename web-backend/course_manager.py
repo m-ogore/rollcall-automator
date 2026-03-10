@@ -1,43 +1,34 @@
-# course_manager.py for FastAPI backend
-import json
-import os
+# course_manager.py — uses Vercel KV (Redis) instead of courses.json
+#
+# Vercel KV gives you these env vars automatically when you link a KV store:
+#   KV_REST_API_URL
+#   KV_REST_API_TOKEN
+#
+# pip install upstash-redis
 
-COURSES_FILE = "courses.json"
+import os
+from upstash_redis import Redis
+
+KV_KEY = "courses"   # single Redis key that holds the whole courses dict as a hash
 
 class CourseManager:
-    def __init__(self, storage_path=COURSES_FILE):
-        self.storage_path = storage_path
-        self._ensure_file()
+    def __init__(self):
+        url   = os.environ.get("KV_REST_API_URL")
+        token = os.environ.get("KV_REST_API_TOKEN")
+        if not url or not token:
+            raise RuntimeError(
+                "KV_REST_API_URL and KV_REST_API_TOKEN must be set.\n"
+                "In Vercel: Storage → Create KV store → link to project.\n"
+                "Locally: add them to a .env file and load with python-dotenv."
+            )
+        self.redis = Redis(url=url, token=token)
 
-    def _ensure_file(self):
-        if not os.path.exists(self.storage_path):
-            with open(self.storage_path, 'w') as f:
-                json.dump({}, f)
+    async def add_course(self, name: str, url: str):
+        self.redis.hset(KV_KEY, name, url)
 
-    def add_course(self, name, url):
-        courses = self._load_courses()
-        courses[name] = url
-        self._save_courses(courses)
+    async def remove_course(self, name: str):
+        self.redis.hdel(KV_KEY, name)
 
-    def remove_course(self, name):
-        courses = self._load_courses()
-        if name in courses:
-            del courses[name]
-            self._save_courses(courses)
-
-    def get_courses(self):
-        return self._load_courses()
-
-    def _load_courses(self):
-        with open(self.storage_path, 'r') as f:
-            return json.load(f)
-
-    def _save_courses(self, courses):
-        with open(self.storage_path, 'w') as f:
-            json.dump(courses, f, indent=2)
-
-# Example usage:
-# manager = CourseManager()
-# manager.add_course('Math', 'https://example.com/math')
-# manager.remove_course('Math')
-# print(manager.get_courses())
+    async def get_courses(self) -> dict:
+        result = self.redis.hgetall(KV_KEY)
+        return result or {}
