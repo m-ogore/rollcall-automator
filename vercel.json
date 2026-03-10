@@ -4,6 +4,10 @@
     {
       "src": "web-backend/main.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "web-frontend/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
