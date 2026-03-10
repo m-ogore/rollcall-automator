@@ -1,3 +1,0 @@
-# Backend logic for web deployment
-# Copy of rollcall_gui.py
-# ...existing code...
