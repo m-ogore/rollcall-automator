@@ -3,3 +3,5 @@ mangum
 upstash-redis
 python-multipart
 python-dotenv
+selenium
+webdriver-manager

@@ -1,6 +1,6 @@
 # main.py
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .course_manager import CourseManager
@@ -9,6 +9,8 @@ import csv
 import io
 import os
 import re
+import queue
+import threading
 import requests as http_requests
 
 load_dotenv()
@@ -204,7 +206,62 @@ async def mark_canvas(request: Request):
         "matched": matched,
     })
 
+# ── Roll Call browser automation (SSE stream) ─────────────────────────────────
+
+@app.post("/api/run_rollcall")
+async def run_rollcall(request: Request):
+    """
+    Drives the real Roll Call LTI tool via Selenium browser automation.
+    Body: { "course_url": "...", "session_date": "YYYY-MM-DD",
+            "students": [{"name":"...", "email":"...", "status":"present|late|absent"}] }
+    Returns: text/event-stream — each line is a log message.
+    """
+    data         = await request.json()
+    course_url   = data.get("course_url", "")
+    session_date = data.get("session_date", "")
+    students     = data.get("students", [])
+
+    if not course_url:
+        return JSONResponse({"error": "course_url required"}, status_code=400)
+    if not session_date:
+        return JSONResponse({"error": "session_date required (YYYY-MM-DD)"}, status_code=400)
+
+    log_queue: queue.Queue = queue.Queue()
+
+    def selenium_thread():
+        try:
+            from .rollcall_browser import run_rollcall_automation
+            run_rollcall_automation(
+                course_url, session_date, students,
+                log=lambda msg: log_queue.put(str(msg))
+            )
+        except ImportError as e:
+            log_queue.put(f"❌ selenium not installed: {e}")
+            log_queue.put("Install with: pip install selenium webdriver-manager")
+        except Exception as e:
+            import traceback
+            log_queue.put(f"❌ {e}")
+            log_queue.put(traceback.format_exc())
+        finally:
+            log_queue.put(None)  # sentinel
+
+    threading.Thread(target=selenium_thread, daemon=True).start()
+
+    def generate():
+        while True:
+            item = log_queue.get()
+            if item is None:
+                yield "data: __DONE__\n\n"
+                break
+            safe = item.replace("\n", " | ")
+            yield f"data: {safe}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
+
 # ── Static frontend ────────────────────────────────────────────────────────────
 
 _frontend_dir = os.path.join(os.path.dirname(__file__), "..", "web-frontend")
 app.mount("/", StaticFiles(directory=_frontend_dir, html=True), name="frontend")
+

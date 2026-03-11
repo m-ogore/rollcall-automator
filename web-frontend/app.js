@@ -1,6 +1,7 @@
 const API = '';
 let currentStudents = [];
 let currentCourseUrl = '';
+let currentSessionDate = '';
 
 // ── Toast ────────────────────────────────────────────────────────────────────
 function toast(msg) {
@@ -106,6 +107,7 @@ document.getElementById('csv-form').addEventListener('submit', async function(e)
     if (!fileInput.files[0]) { toast('Please choose a CSV file.'); return; }
 
     currentCourseUrl = document.getElementById('course-select').value;
+    currentSessionDate = document.getElementById('session-date').value;
     const sessionTime = document.getElementById('session-start').value;
 
     const formData = new FormData();
@@ -281,6 +283,75 @@ async function submitToCanvas() {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Run Roll Call (Browser Automation) ───────────────────────────────────
+async function runRollCall() {
+    if (!currentCourseUrl) { toast('No course selected.'); return; }
+    if (!currentSessionDate) { toast('Please set a session date in Step 2.'); return; }
+    if (!currentStudents.length) { toast('No students loaded.'); return; }
+
+    const btn     = document.getElementById('rollcall-btn');
+    const logBox  = document.getElementById('rollcall-log');
+    const logBody = document.getElementById('rc-log-body');
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span> Running…`;
+    logBody.textContent = '';
+    logBox.classList.remove('hidden');
+    logBox.scrollIntoView({ behavior: 'smooth' });
+
+    const appendLog = (line) => {
+        logBody.textContent += line + '\n';
+        logBox.scrollTop = logBox.scrollHeight;
+    };
+
+    appendLog(`▶ Starting Roll Call automation for ${currentSessionDate}...`);
+
+    try {
+        const res = await fetch(`${API}/api/run_rollcall`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                course_url:   currentCourseUrl,
+                session_date: currentSessionDate,
+                students:     currentStudents
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            appendLog(`❌ Error: ${err.error}`);
+            btn.disabled = false;
+            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Run Roll Call (Browser)`;
+            return;
+        }
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const msg = line.slice(6);
+                    if (msg === '__DONE__') break;
+                    appendLog(msg);
+                }
+            }
+        }
+        appendLog('✔ Done!');
+    } catch (err) {
+        appendLog(`❌ Network error: ${err.message}`);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Run Roll Call (Browser)`;
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadCourses();

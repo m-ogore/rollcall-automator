@@ -193,6 +193,8 @@ select option { background: var(--surface2); }
 .btn-ghost:hover    { background: var(--border); }
 .btn-canvas   { background: var(--canvas-red); color: #fff; }
 .btn-canvas:hover   { background: #c62828; }
+.btn-rollcall { background: #1565c0; color: #fff; }
+.btn-rollcall:hover { background: #0d47a1; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ── Courses ──────────────────────────────────────────────────────── */
@@ -367,6 +369,55 @@ td:last-child { font-weight: 700; }
 .canvas-result.hidden { display: none; }
 .canvas-result.success { background: rgba(67,160,71,.12); border: 1px solid rgba(67,160,71,.3); color: #a5d6a7; }
 .canvas-result.error   { background: rgba(229,57,53,.12); border: 1px solid rgba(229,57,53,.3); color: #ef9a9a; }
+
+/* ── Roll Call log terminal ───────────────────────────────────────── */
+.rc-log {
+    margin-top: 20px;
+    background: #0a0c10;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    max-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+.rc-log.hidden { display: none; }
+
+.rc-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.rc-log-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 2px 6px;
+}
+.rc-log-close:hover { color: var(--text); }
+
+#rc-log-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #b0c4de;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
 
 /* ── Canvas card badges ──────────────────────────────────────────── */
 .rc-card { position: relative; }
