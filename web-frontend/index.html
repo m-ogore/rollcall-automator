@@ -3,22 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance App</title>
+    <title>Roll Call Automator</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Attendance App</h1>
-        <form id="course-form">
-            <input type="text" id="course-name" placeholder="Course Name" required>
-            <input type="text" id="course-url" placeholder="Course URL" required>
-            <button type="submit">Set Course</button>
-        </form>
-        <form id="csv-form" enctype="multipart/form-data">
-            <input type="file" id="csv-file" accept=".csv" required>
-            <button type="submit">Upload CSV</button>
-        </form>
-        <div id="response"></div>
+        <h1>Roll Call Automator</h1>
+
+        <!-- Step 1: Course Management -->
+        <section class="card">
+            <h2>1. Courses</h2>
+            <form id="course-form">
+                <div class="row">
+                    <input type="text" id="course-name" placeholder="Course Name" required>
+                    <input type="text" id="course-url" placeholder="Canvas Course URL" required>
+                    <button type="submit">Add</button>
+                </div>
+            </form>
+            <div id="course-list"></div>
+        </section>
+
+        <!-- Step 2: Upload CSV -->
+        <section class="card">
+            <h2>2. Upload Attendance CSV</h2>
+            <form id="csv-form">
+                <div class="row">
+                    <select id="course-select"><option value="">-- Select Course --</option></select>
+                    <input type="time" id="session-start" title="Session start time">
+                    <label class="file-label">
+                        <input type="file" id="csv-file" accept=".csv" required>
+                        <span id="file-name">Choose CSV…</span>
+                    </label>
+                    <button type="submit">Upload</button>
+                </div>
+                <small>Set session start time so late arrivals are calculated correctly.</small>
+            </form>
+        </section>
+
+        <!-- Step 3: Results -->
+        <section class="card" id="results-section" style="display:none">
+            <h2>3. Attendance Results</h2>
+            <p id="summary"></p>
+            <table id="results-table">
+                <thead>
+                    <tr><th>Name</th><th>Email</th><th>Joined</th><th>Duration</th><th>Status</th></tr>
+                </thead>
+                <tbody id="results-body"></tbody>
+            </table>
+        </section>
+
+        <div id="toast"></div>
     </div>
     <script src="app.js"></script>
 </body>
