@@ -2,9 +2,15 @@
 __pycache__/
 *.pyc
 *.pyo
-.env
-venv/
 *.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
 
 # Node
 node_modules/
@@ -19,10 +25,8 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
-.env
-__pycache__/
-*.pyc
+
+# App specific
 *.csv
-.env
 courses.json
 
