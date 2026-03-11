@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from course_manager import CourseManager
+from .course_manager import CourseManager
 import csv
 import io
 
