@@ -186,9 +186,11 @@ function renderResults(data) {
         tbody.appendChild(tr);
     });
 
-    // Reset result banner
+    // Reset result banner and any canvas badges from a previous submission
     const banner = document.getElementById('canvas-result');
     banner.className = 'canvas-result hidden';
+    document.querySelectorAll('.rc-card .canvas-badge').forEach(b => b.remove());
+    document.querySelectorAll('.rc-card').forEach(c => c.classList.remove('canvas-sent', 'canvas-skipped', 'canvas-pending'));
 }
 
 function updateBadges() {
@@ -215,8 +217,24 @@ async function submitToCanvas() {
     const btn    = document.getElementById('submit-btn');
     const banner = document.getElementById('canvas-result');
     btn.disabled = true;
-    btn.textContent = 'Submitting…';
     banner.className = 'canvas-result hidden';
+
+    // Clear any previous canvas badges from cards
+    document.querySelectorAll('.rc-card .canvas-badge').forEach(b => b.remove());
+    document.querySelectorAll('.rc-card').forEach(c => c.classList.remove('canvas-sent', 'canvas-skipped', 'canvas-pending'));
+
+    // Animate: pulse each card sequentially to show "sending"
+    const cards = [...document.querySelectorAll('#rollcall-grid .rc-card')];
+    const total = cards.length;
+    btn.innerHTML = `<span class="btn-spinner"></span> Marking ${total} students…`;
+
+    // Stagger a brief highlight across cards so the user sees progress
+    for (let i = 0; i < cards.length; i++) {
+        cards[i].classList.add('canvas-pending');
+        if (i > 0) cards[i - 1].classList.remove('canvas-pending');
+        await sleep(30);
+    }
+    if (cards.length) cards[cards.length - 1].classList.remove('canvas-pending');
 
     const res  = await fetch(`${API}/api/mark_canvas`, {
         method: 'POST',
@@ -228,15 +246,41 @@ async function submitToCanvas() {
     btn.disabled = false;
     btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Submit to Canvas`;
 
-    if (res.ok) {
-        banner.className = 'canvas-result success';
-        banner.innerHTML = `<strong>${data.message}</strong>${data.skipped?.length ? `<br><small>Not matched in Canvas: ${data.skipped.join(', ')}</small>` : ''}`;
-    } else {
+    if (!res.ok) {
         banner.className = 'canvas-result error';
         banner.innerHTML = `<strong>Error:</strong> ${data.error}`;
+        banner.scrollIntoView({ behavior: 'smooth' });
+        return;
     }
+
+    // Stamp each card with a result badge
+    const skippedSet = new Set((data.skipped || []).map(e => e.toLowerCase()));
+    cards.forEach((card, i) => {
+        const email = currentStudents[i]?.email?.toLowerCase() || '';
+        const badge = document.createElement('div');
+        badge.className = 'canvas-badge';
+        if (skippedSet.has(email)) {
+            badge.textContent = '⚠ Not found';
+            badge.classList.add('canvas-badge-skip');
+            card.classList.add('canvas-skipped');
+        } else {
+            badge.textContent = '✓ Canvas';
+            badge.classList.add('canvas-badge-ok');
+            card.classList.add('canvas-sent');
+        }
+        // Animate badges in with a slight stagger
+        badge.style.animationDelay = `${i * 25}ms`;
+        card.appendChild(badge);
+    });
+
+    banner.className = 'canvas-result success';
+    banner.innerHTML = `<strong>${data.message}</strong>`
+        + (data.assignment ? ` <span style="opacity:.7;font-size:.85em">Assignment: ${data.assignment}</span>` : '')
+        + (data.skipped?.length ? `<br><small style="opacity:.7">⚠ Not matched in Canvas (no grade sent): ${data.skipped.join(', ')}</small>` : '');
     banner.scrollIntoView({ behavior: 'smooth' });
 }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadCourses();

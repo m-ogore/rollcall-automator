@@ -368,6 +368,46 @@ td:last-child { font-weight: 700; }
 .canvas-result.success { background: rgba(67,160,71,.12); border: 1px solid rgba(67,160,71,.3); color: #a5d6a7; }
 .canvas-result.error   { background: rgba(229,57,53,.12); border: 1px solid rgba(229,57,53,.3); color: #ef9a9a; }
 
+/* ── Canvas card badges ──────────────────────────────────────────── */
+.rc-card { position: relative; }
+
+.canvas-badge {
+    position: absolute;
+    top: 6px; right: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    animation: badge-pop .25s ease both;
+}
+
+@keyframes badge-pop {
+    from { opacity: 0; transform: scale(.6); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.canvas-badge-ok   { background: rgba(67,160,71,.25); color: #81c784; border: 1px solid rgba(67,160,71,.4); }
+.canvas-badge-skip { background: rgba(251,140,0,.2);  color: #ffcc80; border: 1px solid rgba(251,140,0,.4); }
+
+.rc-card.canvas-pending {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    transition: outline .05s;
+}
+
+.rc-card.canvas-skipped { opacity: .65; }
+
+/* Spinning indicator on submit button */
+.btn-spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ── Toast ────────────────────────────────────────────────────────── */
 #toast {
     position: fixed; bottom: 24px; left: 50%;
