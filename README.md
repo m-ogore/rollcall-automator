@@ -171,17 +171,176 @@ A **live log terminal** at the bottom of the screen streams every step in real t
 
 ---
 
-## API Endpoints
+## API Usage
 
-All served by `web_backend/main.py`:
+Base URL (local): `http://localhost:8001`
 
-| Method | Path | Description |
+---
+
+### `GET /api/courses`
+
+Returns all saved courses as a `{ name: url }` object.
+
+```bash
+curl http://localhost:8001/api/courses
+```
+
+**Response**
+```json
+{
+  "Machine Learning C1": "https://alueducation.instructure.com/courses/2571",
+  "Maths for ML C1":     "https://alueducation.instructure.com/courses/2589"
+}
+```
+
+---
+
+### `POST /api/set_course`
+
+Add or update a course. Both fields required.
+
+```bash
+curl -X POST http://localhost:8001/api/set_course \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Machine Learning C1", "url": "https://alueducation.instructure.com/courses/2571" }'
+```
+
+**Response**
+```json
+{ "message": "Course 'Machine Learning C1' added." }
+```
+
+---
+
+### `POST /api/remove_course`
+
+Delete a course by name.
+
+```bash
+curl -X POST http://localhost:8001/api/remove_course \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Machine Learning C1" }'
+```
+
+**Response**
+```json
+{ "message": "Removed." }
+```
+
+---
+
+### `POST /api/upload_csv`
+
+Upload a Zoom / Teams attendance CSV. Returns each student with a calculated attendance status.
+
+**Query parameter (optional):**  
+`session_start` — session start time in `H:MM AM/PM` format. Used to detect late arrivals. If omitted, late detection is skipped.
+
+```bash
+curl -X POST "http://localhost:8001/api/upload_csv?session_start=11:00%20AM" \
+  -F "file=@attendance.csv"
+```
+
+**Response**
+```json
+{
+  "message": "24 students — 18 present, 3 late, 3 absent.",
+  "students": [
+    {
+      "email":       "alice@student.alueducation.com",
+      "name":        "Alice Mwangi",
+      "duration":    "1h 32m 10s",
+      "time_joined": "11:03 AM",
+      "status":      "present"
+    },
+    {
+      "email":       "bob@student.alueducation.com",
+      "name":        "Bob Otieno",
+      "duration":    "0h 45m 00s",
+      "time_joined": "11:22 AM",
+      "status":      "absent"
+    }
+  ]
+}
+```
+
+**Status rules:**
+- `absent`  — attended < 67.5 min (90 × 0.75)
+- `late`    — joined > 15 min after `session_start`
+- `present` — everything else
+
+---
+
+### `POST /api/run_rollcall`
+
+Launches Selenium browser automation to mark attendance in the real Canvas Roll Call LTI tool. Returns a **Server-Sent Events (SSE)** stream — each `data:` line is a log message. The final message is `data: __DONE__`.
+
+**Request body:**
+
+| Field | Type | Description |
 |---|---|---|
-| `GET` | `/api/courses` | Returns `{ name: url }` dict of saved courses |
-| `POST` | `/api/set_course` | Body: `{ name, url }` — add or update a course |
-| `POST` | `/api/remove_course` | Body: `{ name }` — delete a course |
-| `POST` | `/api/upload_csv?session_start=HH:MM AM` | Multipart file upload — returns students with calculated statuses |
-| `POST` | `/api/run_rollcall` | Body: `{ course_url, session_date, students }` — runs Selenium, streams log via SSE |
+| `course_url` | string | Full Canvas course URL, e.g. `https://alueducation.instructure.com/courses/2571` |
+| `session_date` | string | `YYYY-MM-DD` — used to navigate Roll Call's date picker |
+| `students` | array | Each object: `{ name, email, status }` where status is `present`, `late`, or `absent` |
+
+```bash
+curl -X POST http://localhost:8001/api/run_rollcall \
+  -H "Content-Type: application/json" \
+  -d '{
+    "course_url":   "https://alueducation.instructure.com/courses/2571",
+    "session_date": "2026-03-11",
+    "students": [
+      { "name": "Alice Mwangi", "email": "alice@student.alueducation.com", "status": "present" },
+      { "name": "Bob Otieno",   "email": "bob@student.alueducation.com",   "status": "absent"  }
+    ]
+  }'
+```
+
+**Response** — SSE stream (content-type: `text/event-stream`):
+```
+data: ========================================================
+data: ROLL CALL BROWSER AUTOMATION
+data: ========================================================
+data: 🎓 Course ID: 2571
+data: 📅 Date: 2026-03-11
+data: 👥 Students: 2
+data: ✅ Assignment: 'Roll Call Attendance' (ID: 35723)
+data: ✅ Section: 'Section 1' (ID: 5034)
+data: 🌐 Browser: Chrome → /usr/bin/google-chrome
+data: ✅ Browser debug port already open
+data: 🔌 Attaching Selenium to browser...
+data: ✅ Attached — https://rollcall-eu.instructure.com/sections/5034
+data: ✅ Student list loaded
+data: 📅 Navigating to date: Tue Mar 11 2026
+data: ✅ Date selected: Tue Mar 11 2026
+data: [ 1/ 2] Alice Mwangi                    → present...
+data:   ✅ present
+data: [ 2/ 2] Bob Otieno                      → absent...
+data:   ✅ absent
+data: __DONE__
+```
+
+**Reading the stream in JavaScript:**
+```js
+const res    = await fetch('/api/run_rollcall', { method: 'POST', ... });
+const reader = res.body.getReader();
+const dec    = new TextDecoder();
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  for (const line of dec.decode(value).split('\n')) {
+    if (line.startsWith('data: ')) console.log(line.slice(6));
+  }
+}
+```
+
+**Error responses** (JSON, non-200):
+
+| Status | Body | Cause |
+|---|---|---|
+| `400` | `{ "error": "course_url required" }` | Missing field in request body |
+| `400` | `{ "error": "session_date required (YYYY-MM-DD)" }` | Missing date |
+| `500` | `{ "error": "selenium not installed: ..." }` | `pip install selenium webdriver-manager` not run |
 
 ---
 
