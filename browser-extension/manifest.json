@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Roll Call Automator",
+  "version": "1.0.0",
+  "description": "Automates Canvas Roll Call attendance marking from the Roll Call Automator web app.",
+
+  "permissions": ["storage", "tabs", "scripting"],
+
+  "host_permissions": [
+    "*://*.instructure.com/*",
+    "http://localhost:*/*",
+    "https://rollcall-automator.vercel.app/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["*://rollcall-eu.instructure.com/*"],
+      "js": ["content_rollcall.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:*/*",
+        "https://rollcall-automator.vercel.app/*"
+      ],
+      "js": ["content_app.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Roll Call Automator"
+  }
+}

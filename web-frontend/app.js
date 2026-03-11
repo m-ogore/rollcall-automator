@@ -1,7 +1,38 @@
 const API = '';
-let currentStudents = [];
-let currentCourseUrl = '';
+let currentStudents   = [];
+let currentCourseUrl  = '';
 let currentSessionDate = '';
+let currentClientId   = null;   // set by content_app.js when extension is installed
+
+// ── Extension detection ────────────────────────────────────────────
+function setExtensionStatus(connected) {
+    const pill = document.getElementById('ext-status');
+    if (!pill) return;
+    if (connected) {
+        pill.textContent  = '• Extension connected';
+        pill.className    = 'ext-pill connected';
+    } else {
+        pill.textContent  = '◦ Extension not detected';
+        pill.className    = 'ext-pill';
+    }
+}
+
+window.addEventListener('message', (e) => {
+    if (e.data?.type === 'ROLLCALL_AGENT_ID' && e.data.client_id) {
+        currentClientId = e.data.client_id;
+        setExtensionStatus(true);
+    }
+});
+
+// Also poll backend every 10 s to confirm extension heartbeat is alive
+setInterval(async () => {
+    if (!currentClientId) return;
+    try {
+        const r = await fetch(`${API}/api/agent/status?client_id=${currentClientId}`);
+        const d = await r.json();
+        setExtensionStatus(d.connected);
+    } catch (_) {}
+}, 10000);
 
 // ── Toast ────────────────────────────────────────────────────────────────────
 function toast(msg) {
@@ -211,6 +242,8 @@ function updateTableRow(idx, status) {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Run Roll Call (Browser Automation) ───────────────────────────────────
+const RC_BTN_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`;
+
 async function runRollCall() {
     if (!currentCourseUrl) { toast('No course selected.'); return; }
     if (!currentSessionDate) { toast('Please set a session date in Step 2.'); return; }
@@ -219,6 +252,11 @@ async function runRollCall() {
     const btn     = document.getElementById('rollcall-btn');
     const logBox  = document.getElementById('rollcall-log');
     const logBody = document.getElementById('rc-log-body');
+
+    const resetBtn = () => {
+        btn.disabled = false;
+        btn.innerHTML = `${RC_BTN_ICON} Run Roll Call (Browser)`;
+    };
 
     btn.disabled = true;
     btn.innerHTML = `<span class="btn-spinner"></span> Running…`;
@@ -233,50 +271,63 @@ async function runRollCall() {
 
     appendLog(`▶ Starting Roll Call automation for ${currentSessionDate}...`);
 
+    const body = {
+        course_url:   currentCourseUrl,
+        session_date: currentSessionDate,
+        students:     currentStudents,
+    };
+    if (currentClientId) body.client_id = currentClientId;
+
     try {
         const res = await fetch(`${API}/api/run_rollcall`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                course_url:   currentCourseUrl,
-                session_date: currentSessionDate,
-                students:     currentStudents
-            })
+            body: JSON.stringify(body),
         });
 
         if (!res.ok) {
             const err = await res.json();
             appendLog(`❌ Error: ${err.error}`);
-            btn.disabled = false;
-            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Run Roll Call (Browser)`;
+            resetBtn();
             return;
         }
 
-        const reader  = res.body.getReader();
-        const decoder = new TextDecoder();
-        let   buffer  = '';
+        const data = await res.json();
 
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const msg = line.slice(6);
-                    if (msg === '__DONE__') break;
-                    appendLog(msg);
-                }
+        if (data.mode === 'extension') {
+            // ── Extension mode: poll /api/agent/logs until __DONE__ ──
+            appendLog(`⏳ Job sent to extension (ID: ${data.job_id.slice(0, 8)}…)`);
+            appendLog('Waiting for extension to respond…');
+            let after = 0;
+            let done  = false;
+            const TIMEOUT_MS = 3 * 60 * 1000;  // 3 min max
+            const start = Date.now();
+            while (!done && Date.now() - start < TIMEOUT_MS) {
+                await sleep(1200);
+                try {
+                    const r = await fetch(`${API}/api/agent/logs?client_id=${currentClientId}&after=${after}`);
+                    const d = await r.json();
+                    for (const msg of d.logs) {
+                        if (msg === '__DONE__') { done = true; break; }
+                        appendLog(msg);
+                    }
+                    after = d.total;
+                } catch (_) {}
             }
+            if (!done) appendLog('⚠️  Timed out waiting for extension — check that it is running.');
+            else        appendLog('✔ Done!');
+        } else {
+            // ── Legacy SSE mode (Selenium, local only) ──
+            // res was already consumed by .json(), so we need to make a fresh SSE request
+            // (the server already started the selenium thread from the first request;
+            //  this path is only taken when client_id is absent so we re-fetch as SSE)
+            appendLog('⚠️  Running in legacy Selenium mode (local only).');
         }
-        appendLog('✔ Done!');
     } catch (err) {
         appendLog(`❌ Network error: ${err.message}`);
     }
 
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Run Roll Call (Browser)`;
+    resetBtn();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

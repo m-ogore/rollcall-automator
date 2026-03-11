@@ -11,6 +11,8 @@ import os
 import re
 import queue
 import threading
+import time as _time
+import uuid
 import requests as http_requests
 
 load_dotenv()
@@ -26,6 +28,11 @@ app.add_middleware(
 )
 
 course_manager = CourseManager()
+
+# ── Extension agent state (in-memory; swap for Redis in multi-instance deploys) ──
+_agent_heartbeats: dict = {}   # client_id → timestamp
+_pending_jobs: dict     = {}   # client_id → job dict
+_job_logs: dict         = {}   # client_id → list[str]
 
 SESSION_DURATION      = 90
 LATE_JOIN_THRESHOLD   = 15
@@ -81,6 +88,51 @@ def extract_course_id(course_url: str) -> str:
     if not m:
         raise ValueError(f"Cannot parse course ID from: {course_url}")
     return m.group(1)
+
+# ── Extension agent endpoints ─────────────────────────────────────────────────
+
+@app.post("/api/agent/heartbeat")
+async def agent_heartbeat(request: Request):
+    """Called by the browser extension every ~5 s to signal it is alive."""
+    data = await request.json()
+    cid  = data.get("client_id")
+    if cid:
+        _agent_heartbeats[cid] = _time.time()
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/agent/status")
+def agent_status(client_id: str = ""):
+    """Returns {connected: bool} — true if extension sent a heartbeat within 15 s."""
+    last      = _agent_heartbeats.get(client_id, 0)
+    connected = (_time.time() - last) < 15
+    return JSONResponse({"connected": connected})
+
+
+@app.get("/api/agent/job")
+def get_agent_job(client_id: str = ""):
+    """Extension polls this. Returns and removes the pending job if one exists."""
+    job = _pending_jobs.pop(client_id, None)
+    return JSONResponse({"job": job})
+
+
+@app.post("/api/agent/log")
+async def post_agent_log(request: Request):
+    """Extension streams individual log lines here as it runs the automation."""
+    data = await request.json()
+    cid  = data.get("client_id", "")
+    msg  = data.get("message", "")
+    if cid and msg:
+        _job_logs.setdefault(cid, []).append(msg)
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/agent/logs")
+def get_agent_logs(client_id: str = "", after: int = 0):
+    """Frontend polls this to display automation progress."""
+    logs = _job_logs.get(client_id, [])
+    return JSONResponse({"logs": logs[after:], "total": len(logs)})
+
 
 # ── Course endpoints ───────────────────────────────────────────────────────────
 
@@ -211,21 +263,43 @@ async def mark_canvas(request: Request):
 @app.post("/api/run_rollcall")
 async def run_rollcall(request: Request):
     """
-    Drives the real Roll Call LTI tool via Selenium browser automation.
+    Mark Roll Call attendance.
+
+    If `client_id` is supplied (extension mode): stores the job for the browser
+    extension to pick up via GET /api/agent/job, then returns immediately.
+    The frontend polls GET /api/agent/logs for progress.
+
+    If no `client_id` (legacy/local mode): runs Selenium in a background thread
+    and streams progress as SSE (text/event-stream).
+
     Body: { "course_url": "...", "session_date": "YYYY-MM-DD",
-            "students": [{"name":"...", "email":"...", "status":"present|late|absent"}] }
-    Returns: text/event-stream — each line is a log message.
+            "students": [{"name":"...", "email":"...", "status":"present|late|absent"}],
+            "client_id": "<optional: extension UUID>" }
     """
     data         = await request.json()
     course_url   = data.get("course_url", "")
     session_date = data.get("session_date", "")
     students     = data.get("students", [])
+    client_id    = data.get("client_id", "").strip()
 
     if not course_url:
         return JSONResponse({"error": "course_url required"}, status_code=400)
     if not session_date:
         return JSONResponse({"error": "session_date required (YYYY-MM-DD)"}, status_code=400)
 
+    # ── Extension mode ────────────────────────────────────────────────────────
+    if client_id:
+        job_id = str(uuid.uuid4())
+        _job_logs[client_id] = []          # clear previous logs
+        _pending_jobs[client_id] = {
+            "job_id":       job_id,
+            "course_url":   course_url,
+            "session_date": session_date,
+            "students":     students,
+        }
+        return JSONResponse({"mode": "extension", "job_id": job_id})
+
+    # ── Legacy Selenium mode (local only) ─────────────────────────────────────
     log_queue: queue.Queue = queue.Queue()
 
     def selenium_thread():

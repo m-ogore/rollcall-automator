@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roll Call Automator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      width: 280px;
+      padding: 16px;
+    }
+    h1 {
+      font-size: .9rem;
+      font-weight: 600;
+      color: #90caf9;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: .8rem;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.connected  { background: #66bb6a; box-shadow: 0 0 6px #66bb6a; }
+    .dot.connecting { background: #ffa726; box-shadow: 0 0 6px #ffa726; }
+    .dot.error      { background: #ef5350; }
+    label {
+      display: block;
+      font-size: .75rem;
+      color: #90caf9;
+      margin-bottom: 4px;
+    }
+    input {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #0d1117;
+      color: #e0e0e0;
+      font-size: .8rem;
+      margin-bottom: 8px;
+    }
+    input:focus { outline: none; border-color: #1565c0; }
+    button {
+      width: 100%;
+      padding: 7px;
+      border-radius: 6px;
+      border: none;
+      background: #1565c0;
+      color: #fff;
+      font-size: .8rem;
+      cursor: pointer;
+    }
+    button:hover { background: #1976d2; }
+    .id-row {
+      font-size: .7rem;
+      color: #555;
+      margin-top: 10px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#90caf9" stroke-width="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    Roll Call Automator
+  </h1>
+
+  <div class="status-row">
+    <div class="dot connecting" id="status-dot"></div>
+    <span id="status-text">Checking connection…</span>
+  </div>
+
+  <label>Backend URL</label>
+  <input type="url" id="backend-url" placeholder="http://localhost:8001">
+  <button id="save-btn">Save & Reconnect</button>
+
+  <div class="id-row" id="id-row"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

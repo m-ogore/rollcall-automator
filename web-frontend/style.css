@@ -38,7 +38,23 @@ header {
     z-index: 10;
 }
 
-.header-inner { display: flex; align-items: center; width: 100%; }
+.header-inner { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+
+.ext-pill {
+    font-size: .72rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid #333;
+    color: var(--muted);
+    background: transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ext-pill.connected {
+    color: #66bb6a;
+    border-color: #66bb6a44;
+    background: #66bb6a12;
+}
 
 .logo {
     display: flex;
