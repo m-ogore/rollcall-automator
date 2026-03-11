@@ -4,11 +4,14 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .course_manager import CourseManager
+from dotenv import load_dotenv
 import csv
 import io
 import os
 import re
 import requests as http_requests
+
+load_dotenv()
 
 app = FastAPI()
 
