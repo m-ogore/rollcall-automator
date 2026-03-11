@@ -8,10 +8,10 @@
     {
       "src": "web-frontend/**",
       "use": "@vercel/static"
-    }
-  ],
-  "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "web_backend/api.py"
+    },
       "src": "/api/(.*)",
       "dest": "web_backend/api.py"
     },
