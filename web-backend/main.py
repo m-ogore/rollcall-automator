@@ -20,25 +20,25 @@ app.add_middleware(
 course_manager = CourseManager()
 
 @app.post("/api/set_course")
-async def set_course(request: Request):
-    data = await request.json()
+def set_course(request: Request):
+    data = request.json()
     name = data.get("name")
     url = data.get("url")
     if not name or not url:
         return JSONResponse({"message": "Name and URL required."}, status_code=400)
-    await course_manager.add_course(name, url)
+    course_manager.add_course(name, url)
     return JSONResponse({"message": f"Course '{name}' added."})
 
 @app.post("/api/remove_course")
-async def remove_course(request: Request):
-    data = await request.json()
+def remove_course(request: Request):
+    data = request.json()
     name = data.get("name")
-    await course_manager.remove_course(name)
+    course_manager.remove_course(name)
     return JSONResponse({"message": f"Course '{name}' removed."})
 
 @app.get("/api/courses")
-async def get_courses():
-    courses = await course_manager.get_courses()
+def get_courses():
+    courses = course_manager.get_courses()
     return JSONResponse(courses)
 
 @app.post("/api/upload_csv")

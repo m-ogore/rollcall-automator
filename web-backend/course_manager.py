@@ -23,12 +23,12 @@ class CourseManager:
             )
         self.redis = Redis(url=url, token=token)
 
-    async def add_course(self, name: str, url: str):
+    def add_course(self, name: str, url: str):
         self.redis.hset(KV_KEY, name, url)
 
-    async def remove_course(self, name: str):
+    def remove_course(self, name: str):
         self.redis.hdel(KV_KEY, name)
 
-    async def get_courses(self) -> dict:
+    def get_courses(self) -> dict:
         result = self.redis.hgetall(KV_KEY)
         return result or {}
